@@ -1,0 +1,65 @@
+@import 'tailwindcss';
+@import 'tw-animate-css';
+@import 'shadcn/tailwind.css';
+
+@custom-variant dark (&:is(.dark *));
+
+@theme inline {
+  --font-sans: var(--font-be-vietnam), ui-sans-serif, system-ui, sans-serif;
+  --font-serif: var(--font-playfair), ui-serif, Georgia, serif;
+  --color-ring: var(--ring);
+  --color-input: var(--input);
+  --color-border: var(--border);
+  --color-destructive: var(--destructive);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-accent: var(--accent);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-muted: var(--muted);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-secondary: var(--secondary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary: var(--primary);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-popover: var(--popover);
+  --color-card-foreground: var(--card-foreground);
+  --color-card: var(--card);
+  --color-foreground: var(--foreground);
+  --color-background: var(--background);
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+:root {
+  color-scheme: light;
+  --background: oklch(0.966 0.008 75);
+  --foreground: oklch(0.21 0.012 60);
+  --card: oklch(0.985 0.005 75);
+  --card-foreground: oklch(0.21 0.012 60);
+  --popover: oklch(0.985 0.005 75);
+  --popover-foreground: oklch(0.21 0.012 60);
+  --primary: oklch(0.21 0.012 60);
+  --primary-foreground: oklch(0.966 0.008 75);
+  --secondary: oklch(0.92 0.015 75);
+  --secondary-foreground: oklch(0.21 0.012 60);
+  --muted: oklch(0.925 0.014 75);
+  --muted-foreground: oklch(0.48 0.015 60);
+  --accent: oklch(0.55 0.13 40);
+  --accent-foreground: oklch(0.985 0.005 75);
+  --destructive: oklch(0.55 0.2 27);
+  --border: oklch(0.87 0.017 75);
+  --input: oklch(0.87 0.017 75);
+  --ring: oklch(0.55 0.13 40);
+  --radius: 0.25rem;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+  }
+}
