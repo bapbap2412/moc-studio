@@ -1,178 +1,136 @@
-import Link from "next/link";
-import { ShoppingBag } from "lucide-react";
-import { AdminShell, orderStatusMap } from "@/components/admin/admin-shell";
+import type { RowDataPacket } from "mysql2/promise";
+import { AdminShell } from "@/components/admin/admin-shell";
+import { OrdersManager } from "@/components/admin/orders-manager";
 import pool from "@/lib/db";
-import { formatPrice } from "@/lib/format";
+import type {
+  AdminOrder,
+  AdminOrderItem,
+  AdminVariant,
+  CustomerOption,
+} from "@/lib/admin-types";
 
-type OrderRow = {
-  id: string;
-  code: string;
-  recipient_name: string;
-  phone: string;
-  email: string;
-  total: number;
-  status: string;
-  payment_method: string;
-  payment_status: string;
-  created_at: string;
-  item_count: number;
-  first_product: string | null;
-};
-
-async function getOrders(): Promise<OrderRow[]> {
+async function getOrders(): Promise<AdminOrder[]> {
   try {
-    const [rows] = await pool.query(
-      `SELECT
-        o.id, o.code, o.recipient_name, o.phone, o.email,
-        o.total, o.status, o.payment_method, o.payment_status,
-        DATE_FORMAT(o.created_at, '%d/%m/%Y') AS created_at,
-        (SELECT COUNT(*) FROM order_items oi WHERE oi.order_id = o.id) AS item_count,
-        (SELECT oi.product_name FROM order_items oi WHERE oi.order_id = o.id ORDER BY oi.id LIMIT 1) AS first_product
-      FROM orders o
-      ORDER BY o.created_at DESC`,
-    );
-    return rows as OrderRow[];
+    const [[orderRows], [itemRows]] = await Promise.all([
+      pool.query<RowDataPacket[]>(
+        `SELECT
+          o.id, o.code, o.user_id, o.recipient_name, o.phone, o.email, o.shipping_address, o.note,
+          o.subtotal, o.shipping_fee, o.discount_amount, o.total,
+          o.status, o.payment_method, o.payment_status,
+          DATE_FORMAT(o.created_at, '%d/%m/%Y %H:%i') AS created_at
+        FROM orders o
+        ORDER BY o.created_at DESC`,
+      ),
+      pool.query<RowDataPacket[]>(
+        `SELECT id, order_id, product_name, color_name, size_name, unit_price, quantity
+         FROM order_items ORDER BY id`,
+      ),
+    ]);
+
+    const itemsByOrder = new Map<string, AdminOrderItem[]>();
+    for (const r of itemRows) {
+      const list = itemsByOrder.get(String(r.order_id)) ?? [];
+      list.push({
+        id: Number(r.id),
+        product_name: r.product_name,
+        color_name: r.color_name,
+        size_name: r.size_name,
+        unit_price: Number(r.unit_price),
+        quantity: Number(r.quantity),
+      });
+      itemsByOrder.set(String(r.order_id), list);
+    }
+
+    return orderRows.map((r) => ({
+      id: String(r.id),
+      code: r.code,
+      user_id: r.user_id ? String(r.user_id) : null,
+      recipient_name: r.recipient_name,
+      phone: r.phone,
+      email: r.email,
+      shipping_address: r.shipping_address ?? "",
+      note: r.note ?? null,
+      subtotal: Number(r.subtotal),
+      shipping_fee: Number(r.shipping_fee),
+      discount_amount: Number(r.discount_amount),
+      total: Number(r.total),
+      status: r.status,
+      payment_method: r.payment_method,
+      payment_status: r.payment_status,
+      created_at: r.created_at,
+      items: itemsByOrder.get(String(r.id)) ?? [],
+    }));
   } catch (error) {
     console.error("Admin orders error:", error);
     return [];
   }
 }
 
-const paymentMethodMap: Record<string, string> = {
-  cod: "COD",
-  bank_transfer: "Chuyển khoản",
-  ewallet: "Ví điện tử",
-};
+async function getVariants(): Promise<AdminVariant[]> {
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      `SELECT pv.id, pv.sku, pv.stock_quantity, p.name AS product_name,
+        COALESCE(c.name, '—') AS color_name, COALESCE(s.name, '—') AS size_name,
+        COALESCE(pv.price_override, p.sale_price, p.base_price) AS price
+       FROM product_variants pv
+       JOIN products p ON p.id = pv.product_id
+       LEFT JOIN colors c ON c.id = pv.color_id
+       LEFT JOIN sizes s ON s.id = pv.size_id
+       WHERE p.status = 'active'
+       ORDER BY p.name, c.name, s.sort_order`,
+    );
+    return rows.map((r) => ({
+      id: String(r.id),
+      sku: r.sku,
+      product_name: r.product_name,
+      color_name: r.color_name,
+      size_name: r.size_name,
+      price: Number(r.price),
+      stock: Number(r.stock_quantity),
+    }));
+  } catch (error) {
+    console.error("Admin variants error:", error);
+    return [];
+  }
+}
 
-const paymentStatusMap: Record<string, { label: string; badgeClass: string }> = {
-  unpaid: { label: "Chưa thanh toán", badgeClass: "bg-amber-50 text-amber-700" },
-  paid: { label: "Đã thanh toán", badgeClass: "bg-green-50 text-green-700" },
-  refunded: { label: "Đã hoàn tiền", badgeClass: "bg-red-50 text-red-700" },
-};
+async function getCustomerOptions(): Promise<CustomerOption[]> {
+  try {
+    const [rows] = await pool.query<RowDataPacket[]>(
+      "SELECT id, full_name, email, phone FROM users WHERE role = 'customer' ORDER BY full_name",
+    );
+    return rows.map((r) => ({
+      id: String(r.id),
+      full_name: r.full_name,
+      email: r.email,
+      phone: r.phone ?? null,
+    }));
+  } catch (error) {
+    console.error("Admin customer options error:", error);
+    return [];
+  }
+}
 
-export default async function AdminOrdersPage() {
-  const orders = await getOrders();
-
-  const totalRevenue = orders
-    .filter((o) => o.status !== "cancelled")
-    .reduce((sum, o) => sum + o.total, 0);
-
-  const pendingCount = orders.filter((o) => o.status === "pending").length;
-  const completedCount = orders.filter((o) => o.status === "completed").length;
+export default async function AdminOrdersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}) {
+  const [{ q }, orders, variants, customers] = await Promise.all([
+    searchParams,
+    getOrders(),
+    getVariants(),
+    getCustomerOptions(),
+  ]);
 
   return (
-    <AdminShell
-      activeHref="/admin/don-hang"
-      breadcrumb="Cửa hàng / Đơn hàng"
-      title="Đơn hàng"
-    >
-      <section className="mb-8">
-        <h1 className="font-serif text-3xl md:text-4xl">Quản lý đơn hàng</h1>
-        <p className="mt-2 text-sm text-neutral-500">
-          {orders.length} đơn hàng · {pendingCount} đang xử lý · {completedCount} đã giao ·{" "}
-          Tổng doanh thu {formatPrice(totalRevenue)}
-        </p>
-      </section>
-
-      <section className="overflow-hidden rounded-xl border border-[#e9e6de] bg-white">
-        {orders.length > 0 ? (
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[900px] text-left text-sm">
-              <thead className="bg-[#faf9f6] text-xs text-neutral-500">
-                <tr>
-                  <th className="px-6 py-4 font-medium">Mã đơn</th>
-                  <th className="px-6 py-4 font-medium">Khách hàng</th>
-                  <th className="px-6 py-4 font-medium">Sản phẩm</th>
-                  <th className="px-6 py-4 font-medium">Ngày đặt</th>
-                  <th className="px-6 py-4 font-medium">Thanh toán</th>
-                  <th className="px-6 py-4 font-medium">Tổng tiền</th>
-                  <th className="px-6 py-4 font-medium">Trạng thái</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-[#eeeae2]">
-                {orders.map((o) => {
-                  const statusMeta = orderStatusMap[o.status] ?? {
-                    label: o.status,
-                    badgeClass: "bg-neutral-100 text-neutral-700",
-                  };
-                  const payStatus = paymentStatusMap[o.payment_status] ?? {
-                    label: o.payment_status,
-                    badgeClass: "bg-neutral-100 text-neutral-700",
-                  };
-                  return (
-                    <tr key={o.id} className="hover:bg-[#fcfbf8]">
-                      <td className="px-6 py-4 font-medium">{o.code}</td>
-                      <td className="px-6 py-4">
-                        <div>
-                          <p className="font-medium">{o.recipient_name}</p>
-                          <p className="text-xs text-neutral-500">{o.phone}</p>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 text-neutral-600">
-                        {o.first_product ? (
-                          <span>
-                            {o.first_product}
-                            {o.item_count > 1 && (
-                              <span className="text-neutral-400">
-                                {" "}
-                                +{o.item_count - 1} khác
-                              </span>
-                            )}
-                          </span>
-                        ) : (
-                          "—"
-                        )}
-                      </td>
-                      <td className="px-6 py-4 text-neutral-500">
-                        {o.created_at}
-                      </td>
-                      <td className="px-6 py-4">
-                        <div className="flex flex-col gap-1">
-                          <span className="text-xs text-neutral-600">
-                            {paymentMethodMap[o.payment_method] ?? o.payment_method}
-                          </span>
-                          <span
-                            className={`inline-flex w-fit rounded-full px-2 py-0.5 text-[10px] ${payStatus.badgeClass}`}
-                          >
-                            {payStatus.label}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 font-medium">
-                        {formatPrice(o.total)}
-                      </td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs ${statusMeta.badgeClass}`}
-                        >
-                          {statusMeta.label}
-                        </span>
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div className="flex flex-col items-center gap-4 px-6 py-20 text-center">
-            <ShoppingBag size={32} className="text-neutral-300" />
-            <p className="font-serif text-xl text-neutral-400">
-              Chưa có đơn hàng nào
-            </p>
-            <p className="text-sm text-neutral-500">
-              Đơn hàng sẽ xuất hiện tại đây khi khách hàng đặt mua.
-            </p>
-            <Link
-              href="/san-pham"
-              className="mt-2 inline-flex h-11 items-center bg-[#24241f] px-5 text-sm text-white transition hover:bg-neutral-700"
-            >
-              Xem cửa hàng
-            </Link>
-          </div>
-        )}
-      </section>
-
+    <AdminShell activeHref="/admin/don-hang" breadcrumb="Cửa hàng / Đơn hàng" title="Đơn hàng">
+      <OrdersManager
+        orders={orders}
+        variants={variants}
+        customers={customers}
+        initialQuery={typeof q === "string" ? q : ""}
+      />
       <footer className="py-8 text-center text-xs text-neutral-400">
         © 2026 MỘC Studio · Admin Dashboard
       </footer>

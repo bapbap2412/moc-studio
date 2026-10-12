@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { Toaster } from "sonner";
 import { getSession } from "@/lib/session";
 
 export default async function AdminLayout({
@@ -16,5 +17,10 @@ export default async function AdminLayout({
     redirect("/");
   }
 
-  return <>{children}</>;
+  return (
+    <>
+      {children}
+      <Toaster position="top-right" richColors closeButton />
+    </>
+  );
 }

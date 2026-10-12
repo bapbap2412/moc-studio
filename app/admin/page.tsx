@@ -349,24 +349,7 @@ export default async function AdminPage() {
             </div>
           </div>
 
-          <div className="flex items-center gap-3">
-            <button
-              type="button"
-              aria-label="Tìm kiếm"
-              className="hidden h-10 items-center gap-2 rounded-lg border border-[#e8e5dc] px-3 text-sm text-neutral-500 sm:flex"
-            >
-              <Search size={16} />
-              Tìm kiếm...
-            </button>
-            <button
-              type="button"
-              aria-label="Thông báo"
-              className="relative flex h-10 w-10 items-center justify-center rounded-lg border border-[#e8e5dc]"
-            >
-              <Bell size={18} />
-              <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-red-500" />
-            </button>
-          </div>
+          
         </header>
 
         <div className="mx-auto max-w-[1500px] p-5 md:p-9">
