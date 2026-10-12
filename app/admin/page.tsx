@@ -1,86 +1,39 @@
 
-import {
-  LayoutDashboard,
-  Package,
-  ShoppingBag,
-  Users,
-  Settings,
-  Search,
-  Bell,
-  ArrowUpRight,
-  ArrowDownRight,
-  Plus,
-  MoreHorizontal,
-  Shirt,
-  CreditCard,
-  Menu,
-} from "lucide-react";
+import { LayoutDashboard, Package, ShoppingBag, Users, Settings, Search, Bell, ArrowUpRight, ArrowDownRight, Plus, MoveHorizontal as MoreHorizontal, Shirt, CreditCard, Menu } from "lucide-react";
 import { LogoutButton } from "@/components/auth/logout-button";
-const stats = [
-  {
-    label: "Tổng doanh thu",
-    value: "24.850.000₫",
-    change: "+12,8%",
-    up: true,
-    icon: CreditCard,
-  },
-  {
-    label: "Đơn hàng",
-    value: "128",
-    change: "+8,2%",
-    up: true,
-    icon: ShoppingBag,
-  },
-  {
-    label: "Sản phẩm",
-    value: "86",
-    change: "+4 sản phẩm",
-    up: true,
-    icon: Package,
-  },
-  {
-    label: "Khách hàng",
-    value: "542",
-    change: "-2,4%",
-    up: false,
-    icon: Users,
-  },
-];
+import pool from "@/lib/db";
+import { formatPrice } from "@/lib/format";
 
-const orders = [
-  {
-    id: "#MOC-1028",
-    customer: "Nguyễn Minh Anh",
-    product: "Áo sơ mi Linen",
-    date: "10/10/2026",
-    total: "590.000₫",
-    status: "Đang xử lý",
+const statusMap: Record<
+  string,
+  { label: string; badgeClass: string; barColor: string }
+> = {
+  pending: {
+    label: "Đang xử lý",
+    badgeClass: "bg-amber-50 text-amber-700",
+    barColor: "bg-[#d9c8a2]",
   },
-  {
-    id: "#MOC-1027",
-    customer: "Trần Khánh Linh",
-    product: "Quần ống rộng",
-    date: "10/10/2026",
-    total: "750.000₫",
-    status: "Đã giao",
+  confirmed: {
+    label: "Đã xác nhận",
+    badgeClass: "bg-blue-50 text-blue-700",
+    barColor: "bg-[#aaa48f]",
   },
-  {
-    id: "#MOC-1026",
-    customer: "Lê Hoàng Nam",
-    product: "Áo thun Basic",
-    date: "09/10/2026",
-    total: "320.000₫",
-    status: "Đang giao",
+  shipping: {
+    label: "Đang giao",
+    badgeClass: "bg-blue-50 text-blue-700",
+    barColor: "bg-[#aaa48f]",
   },
-  {
-    id: "#MOC-1025",
-    customer: "Phạm Thu Hà",
-    product: "Váy Midi",
-    date: "09/10/2026",
-    total: "890.000₫",
-    status: "Đã giao",
+  completed: {
+    label: "Đã giao",
+    badgeClass: "bg-green-50 text-green-700",
+    barColor: "bg-[#45483b]",
   },
-];
+  cancelled: {
+    label: "Đã hủy",
+    badgeClass: "bg-red-50 text-red-700",
+    barColor: "bg-red-300",
+  },
+};
 
 const navItems = [
   { label: "Tổng quan", icon: LayoutDashboard, href: "/admin" },
@@ -90,15 +43,249 @@ const navItems = [
   { label: "Cài đặt", icon: Settings, href: "/admin/cai-dat" },
 ];
 
-export default function AdminPage() {
+function pctChange(current: number, previous: number): number | null {
+  if (previous === 0) return current > 0 ? null : 0;
+  return ((current - previous) / previous) * 100;
+}
+
+function formatChange(pct: number | null): string {
+  if (pct === null) return "mới";
+  const sign = pct >= 0 ? "+" : "";
+  return `${sign}${pct.toFixed(1).replace(".", ",")}%`;
+}
+
+type DashboardData = {
+  totalRevenue: number;
+  totalOrders: number;
+  totalProducts: number;
+  newProducts: number;
+  totalCustomers: number;
+  newCustomers: number;
+  revenueChange: number | null;
+  orderChange: number | null;
+  chartDays: { label: string; revenue: number }[];
+  orderStatuses: { status: string; count: number; pct: number }[];
+  recentOrders: {
+    code: string;
+    recipient_name: string;
+    product_name: string | null;
+    created_at: string;
+    total: number;
+    status: string;
+  }[];
+  bestSellers: { product_name: string; total_qty: number }[];
+};
+
+const defaultData: DashboardData = {
+  totalRevenue: 0,
+  totalOrders: 0,
+  totalProducts: 0,
+  newProducts: 0,
+  totalCustomers: 0,
+  newCustomers: 0,
+  revenueChange: null,
+  orderChange: null,
+  chartDays: [],
+  orderStatuses: [],
+  recentOrders: [],
+  bestSellers: [],
+};
+
+async function getDashboardData(): Promise<DashboardData> {
+  try {
+    const days: { key: string; label: string; revenue: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date();
+      d.setDate(d.getDate() - i);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      const label = `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`;
+      days.push({ key, label, revenue: 0 });
+    }
+
+    const [
+      statsResult,
+      momResult,
+      chartResult,
+      statusResult,
+      recentResult,
+      bestSellerResult,
+    ] = await Promise.all([
+      pool.query(
+        `SELECT
+          (SELECT COALESCE(SUM(total), 0) FROM orders WHERE status != 'cancelled') AS total_revenue,
+          (SELECT COUNT(*) FROM orders) AS total_orders,
+          (SELECT COUNT(*) FROM products WHERE status = 'active') AS total_products,
+          (SELECT COUNT(*) FROM products WHERE status = 'active' AND is_new = 1) AS new_products,
+          (SELECT COUNT(*) FROM users WHERE role = 'customer') AS total_customers,
+          (SELECT COUNT(*) FROM users WHERE role = 'customer' AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01')) AS new_customers`,
+      ),
+      pool.query(
+        `SELECT
+          COALESCE(SUM(CASE WHEN created_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN total ELSE 0 END), 0) AS this_month_rev,
+          COALESCE(SUM(CASE WHEN created_at >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MONTH), '%Y-%m-01') AND created_at < DATE_FORMAT(NOW(), '%Y-%m-01') THEN total ELSE 0 END), 0) AS last_month_rev,
+          COALESCE(SUM(CASE WHEN created_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN 1 ELSE 0 END), 0) AS this_month_orders,
+          COALESCE(SUM(CASE WHEN created_at >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MONTH), '%Y-%m-01') AND created_at < DATE_FORMAT(NOW(), '%Y-%m-01') THEN 1 ELSE 0 END), 0) AS last_month_orders
+        FROM orders
+        WHERE status != 'cancelled'`,
+      ),
+      pool.query(
+        `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS d, COALESCE(SUM(total), 0) AS rev
+         FROM orders
+         WHERE status != 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+         GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
+         ORDER BY d`,
+      ),
+      pool.query(
+        `SELECT status, COUNT(*) AS cnt FROM orders GROUP BY status`,
+      ),
+      pool.query(
+        `SELECT o.code, o.recipient_name, DATE_FORMAT(o.created_at, '%d/%m/%Y') AS created_at, o.total, o.status,
+           (SELECT oi.product_name FROM order_items oi WHERE oi.order_id = o.id ORDER BY oi.id LIMIT 1) AS product_name
+         FROM orders o
+         ORDER BY o.created_at DESC
+         LIMIT 5`,
+      ),
+      pool.query(
+        `SELECT oi.product_name, SUM(oi.quantity) AS total_qty
+         FROM order_items oi
+         JOIN orders o ON oi.order_id = o.id
+         WHERE o.status != 'cancelled'
+         GROUP BY oi.product_name
+         ORDER BY total_qty DESC
+         LIMIT 3`,
+      ),
+    ]);
+
+    const statsRow = (statsResult[0] as Record<string, unknown>[])[0] || {};
+    const momRow = (momResult[0] as Record<string, unknown>[])[0] || {};
+
+    const thisMonthRev = Number(momRow.this_month_rev) || 0;
+    const lastMonthRev = Number(momRow.last_month_rev) || 0;
+    const thisMonthOrders = Number(momRow.this_month_orders) || 0;
+    const lastMonthOrders = Number(momRow.last_month_orders) || 0;
+
+    const chartRows = chartResult[0] as { d: string; rev: number }[];
+    const chartMap = new Map<string, number>();
+    for (const row of chartRows) {
+      chartMap.set(row.d, Number(row.rev) || 0);
+    }
+    for (const day of days) {
+      day.revenue = chartMap.get(day.key) || 0;
+    }
+
+    const statusRows = statusResult[0] as { status: string; cnt: number }[];
+    const totalOrdersCount = statusRows.reduce(
+      (sum, r) => sum + Number(r.cnt),
+      0,
+    );
+    const orderStatuses = statusRows
+      .map((r) => ({
+        status: r.status,
+        count: Number(r.cnt),
+        pct:
+          totalOrdersCount > 0
+            ? Math.round((Number(r.cnt) / totalOrdersCount) * 100)
+            : 0,
+      }))
+      .sort((a, b) => b.count - a.count);
+
+    const recentOrders = (recentResult[0] as Record<string, unknown>[]).map(
+      (r) => ({
+        code: String(r.code),
+        recipient_name: String(r.recipient_name),
+        product_name: r.product_name ? String(r.product_name) : null,
+        created_at: String(r.created_at),
+        total: Number(r.total),
+        status: String(r.status),
+      }),
+    );
+
+    const bestSellers = (bestSellerResult[0] as Record<string, unknown>[]).map(
+      (r) => ({
+        product_name: String(r.product_name),
+        total_qty: Number(r.total_qty),
+      }),
+    );
+
+    return {
+      totalRevenue: Number(statsRow.total_revenue) || 0,
+      totalOrders: Number(statsRow.total_orders) || 0,
+      totalProducts: Number(statsRow.total_products) || 0,
+      newProducts: Number(statsRow.new_products) || 0,
+      totalCustomers: Number(statsRow.total_customers) || 0,
+      newCustomers: Number(statsRow.new_customers) || 0,
+      revenueChange: pctChange(thisMonthRev, lastMonthRev),
+      orderChange: pctChange(thisMonthOrders, lastMonthOrders),
+      chartDays: days.map((d) => ({ label: d.label, revenue: d.revenue })),
+      orderStatuses,
+      recentOrders,
+      bestSellers,
+    };
+  } catch (error) {
+    console.error("Dashboard data error:", error);
+    return defaultData;
+  }
+}
+
+export default async function AdminPage() {
+  const data = await getDashboardData();
+
+  const today = new Date();
+  const dateStr = new Intl.DateTimeFormat("vi-VN", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(today);
+  const formattedDate = dateStr.charAt(0).toUpperCase() + dateStr.slice(1);
+
+  const stats = [
+    {
+      label: "Tổng doanh thu",
+      value: formatPrice(data.totalRevenue),
+      change: formatChange(data.revenueChange),
+      up: data.revenueChange === null ? true : data.revenueChange >= 0,
+      icon: CreditCard,
+      suffix: "so với tháng trước",
+    },
+    {
+      label: "Đơn hàng",
+      value: String(data.totalOrders),
+      change: formatChange(data.orderChange),
+      up: data.orderChange === null ? true : data.orderChange >= 0,
+      icon: ShoppingBag,
+      suffix: "so với tháng trước",
+    },
+    {
+      label: "Sản phẩm",
+      value: String(data.totalProducts),
+      change: `${data.newProducts} mới`,
+      up: true,
+      icon: Package,
+      suffix: "đang bán",
+    },
+    {
+      label: "Khách hàng",
+      value: String(data.totalCustomers),
+      change: `${data.newCustomers} mới`,
+      up: true,
+      icon: Users,
+      suffix: "tháng này",
+    },
+  ];
+
+  const maxRev = Math.max(...data.chartDays.map((d) => d.revenue), 1);
+  const chartHeights = data.chartDays.map((d) =>
+    Math.max((d.revenue / maxRev) * 100, 2),
+  );
+  const todayIndex = data.chartDays.length - 1;
+
   return (
     <div className="min-h-screen bg-[#f7f6f2] text-[#24241f]">
       <aside className="fixed inset-y-0 left-0 z-20 hidden w-64 flex-col border-r border-[#e8e5dc] bg-white lg:flex">
         <div className="flex h-20 items-center border-b border-[#eeeae2] px-7">
           <div>
-            <h1 className="font-serif text-2xl tracking-[0.2em]">
-              MỘC
-            </h1>
+            <h1 className="font-serif text-2xl tracking-[0.2em]">MỘC</h1>
             <p className="mt-1 text-[9px] tracking-[0.28em] text-neutral-500">
               STUDIO · ADMIN
             </p>
@@ -145,10 +332,10 @@ export default function AdminPage() {
           </div>
         </div>
         <div className="border-t border-gray-200 p-4">
-            <p className="mb-3 text-sm font-semibold text-gray-800">
-                Quản trị viên
-            </p>
-            <LogoutButton />
+          <p className="mb-3 text-sm font-semibold text-gray-800">
+            Quản trị viên
+          </p>
+          <LogoutButton />
         </div>
       </aside>
 
@@ -186,7 +373,7 @@ export default function AdminPage() {
           <section className="mb-8 flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
             <div>
               <p className="text-xs uppercase tracking-[0.2em] text-neutral-500">
-                Thứ bảy, 10 tháng 10, 2026
+                {formattedDate}
               </p>
               <h1 className="mt-3 font-serif text-3xl md:text-4xl">
                 Chào mừng trở lại.
@@ -231,9 +418,7 @@ export default function AdminPage() {
                   >
                     <TrendIcon size={15} />
                     {stat.change}
-                    <span className="text-neutral-400">
-                      so với tháng trước
-                    </span>
+                    <span className="text-neutral-400">{stat.suffix}</span>
                   </p>
                 </article>
               );
@@ -258,26 +443,26 @@ export default function AdminPage() {
               </div>
 
               <div className="mt-8 flex h-56 items-end gap-3 border-b border-l border-[#eeeae2] px-3 pb-0 pt-4 sm:gap-5">
-                {[38, 58, 45, 78, 53, 90, 68].map((height, index) => (
+                {chartHeights.map((height, index) => (
                   <div
                     key={index}
                     className="flex h-full flex-1 flex-col justify-end"
                   >
                     <div
                       className={`w-full rounded-t-sm ${
-                        index === 5 ? "bg-[#34342c]" : "bg-[#d9d5c9]"
+                        index === todayIndex ? "bg-[#34342c]" : "bg-[#d9d5c9]"
                       }`}
                       style={{ height: `${height}%` }}
-                      title={`Ngày ${index + 4}`}
+                      title={`${data.chartDays[index]?.label}: ${formatPrice(data.chartDays[index]?.revenue ?? 0)}`}
                     />
                   </div>
                 ))}
               </div>
 
               <div className="mt-3 flex justify-between pl-2 text-[11px] text-neutral-400">
-                {["04/10", "05/10", "06/10", "07/10", "08/10", "09/10", "10/10"].map(
-                  (day) => <span key={day}>{day}</span>
-                )}
+                {data.chartDays.map((day) => (
+                  <span key={day.label}>{day.label}</span>
+                ))}
               </div>
             </article>
 
@@ -288,34 +473,63 @@ export default function AdminPage() {
               </div>
 
               <div className="mt-7 space-y-6">
-                {[
-                  { label: "Đã giao", value: 62, color: "bg-[#45483b]" },
-                  { label: "Đang giao", value: 24, color: "bg-[#aaa48f]" },
-                  { label: "Đang xử lý", value: 14, color: "bg-[#d9c8a2]" },
-                ].map((item) => (
-                  <div key={item.label}>
-                    <div className="mb-2 flex justify-between text-sm">
-                      <span className="text-neutral-600">{item.label}</span>
-                      <span className="font-medium">{item.value}%</span>
-                    </div>
-                    <div className="h-2 overflow-hidden rounded-full bg-[#f0eee8]">
-                      <div
-                        className={`h-full rounded-full ${item.color}`}
-                        style={{ width: `${item.value}%` }}
-                      />
-                    </div>
-                  </div>
-                ))}
+                {data.orderStatuses.length > 0 ? (
+                  data.orderStatuses.map((item) => {
+                    const meta = statusMap[item.status] ?? {
+                      label: item.status,
+                      barColor: "bg-[#d9d5c9]",
+                    };
+                    return (
+                      <div key={item.status}>
+                        <div className="mb-2 flex justify-between text-sm">
+                          <span className="text-neutral-600">
+                            {meta.label}
+                          </span>
+                          <span className="font-medium">{item.pct}%</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-[#f0eee8]">
+                          <div
+                            className={`h-full rounded-full ${meta.barColor}`}
+                            style={{ width: `${item.pct}%` }}
+                          />
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <p className="text-sm text-neutral-400">
+                    Chưa có đơn hàng nào.
+                  </p>
+                )}
               </div>
 
               <div className="mt-8 border-t border-[#eeeae2] pt-5">
                 <div className="flex items-center gap-2 text-sm text-neutral-600">
                   <Shirt size={17} />
-                  <span>Sản phẩm đang được quan tâm</span>
+                  <span>Sản phẩm bán chạy</span>
                 </div>
-                <p className="mt-2 text-xs leading-5 text-neutral-500">
-                  Khu vực này sẽ hiển thị sản phẩm bán chạy khi kết nối dữ liệu.
-                </p>
+                {data.bestSellers.length > 0 ? (
+                  <ul className="mt-3 space-y-2">
+                    {data.bestSellers.map((bs) => (
+                      <li
+                        key={bs.product_name}
+                        className="flex items-center justify-between text-xs"
+                      >
+                        <span className="text-neutral-600">
+                          {bs.product_name}
+                        </span>
+                        <span className="font-medium">
+                          {bs.total_qty} đã bán
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                ) : (
+                  <p className="mt-2 text-xs leading-5 text-neutral-500">
+                    Chưa có dữ liệu bán hàng. Sản phẩm bán chạy sẽ hiển thị ở
+                    đây khi có đơn hàng.
+                  </p>
+                )}
               </div>
             </article>
           </section>
@@ -336,50 +550,76 @@ export default function AdminPage() {
               </a>
             </div>
 
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-left text-sm">
-                <thead className="bg-[#faf9f6] text-xs text-neutral-500">
-                  <tr>
-                    <th className="px-6 py-4 font-medium">Mã đơn hàng</th>
-                    <th className="px-6 py-4 font-medium">Khách hàng</th>
-                    <th className="px-6 py-4 font-medium">Sản phẩm</th>
-                    <th className="px-6 py-4 font-medium">Ngày đặt</th>
-                    <th className="px-6 py-4 font-medium">Tổng tiền</th>
-                    <th className="px-6 py-4 font-medium">Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#eeeae2]">
-                  {orders.map((order) => (
-                    <tr key={order.id} className="hover:bg-[#fcfbf8]">
-                      <td className="px-6 py-4 font-medium">{order.id}</td>
-                      <td className="px-6 py-4">{order.customer}</td>
-                      <td className="px-6 py-4 text-neutral-600">{order.product}</td>
-                      <td className="px-6 py-4 text-neutral-500">{order.date}</td>
-                      <td className="px-6 py-4 font-medium">{order.total}</td>
-                      <td className="px-6 py-4">
-                        <span
-                          className={`inline-flex rounded-full px-2.5 py-1 text-xs ${
-                            order.status === "Đã giao"
-                              ? "bg-green-50 text-green-700"
-                              : order.status === "Đang giao"
-                                ? "bg-blue-50 text-blue-700"
-                                : "bg-amber-50 text-amber-700"
-                          }`}
-                        >
-                          {order.status}
-                        </span>
-                      </td>
+            {data.recentOrders.length > 0 ? (
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[720px] text-left text-sm">
+                  <thead className="bg-[#faf9f6] text-xs text-neutral-500">
+                    <tr>
+                      <th className="px-6 py-4 font-medium">Mã đơn hàng</th>
+                      <th className="px-6 py-4 font-medium">Khách hàng</th>
+                      <th className="px-6 py-4 font-medium">Sản phẩm</th>
+                      <th className="px-6 py-4 font-medium">Ngày đặt</th>
+                      <th className="px-6 py-4 font-medium">Tổng tiền</th>
+                      <th className="px-6 py-4 font-medium">Trạng thái</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-[#eeeae2]">
+                    {data.recentOrders.map((order) => {
+                      const meta = statusMap[order.status] ?? {
+                        label: order.status,
+                        badgeClass: "bg-neutral-100 text-neutral-700",
+                      };
+                      return (
+                        <tr key={order.code} className="hover:bg-[#fcfbf8]">
+                          <td className="px-6 py-4 font-medium">
+                            {order.code}
+                          </td>
+                          <td className="px-6 py-4">{order.recipient_name}</td>
+                          <td className="px-6 py-4 text-neutral-600">
+                            {order.product_name ?? "—"}
+                          </td>
+                          <td className="px-6 py-4 text-neutral-500">
+                            {order.created_at}
+                          </td>
+                          <td className="px-6 py-4 font-medium">
+                            {formatPrice(order.total)}
+                          </td>
+                          <td className="px-6 py-4">
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-1 text-xs ${meta.badgeClass}`}
+                            >
+                              {meta.label}
+                            </span>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <div className="px-6 py-16 text-center">
+                <p className="font-serif text-xl text-neutral-400">
+                  Chưa có đơn hàng nào
+                </p>
+                <p className="mt-2 text-sm text-neutral-500">
+                  Đơn hàng mới sẽ xuất hiện tại đây khi khách hàng đặt mua.
+                </p>
+              </div>
+            )}
 
             <div className="flex items-center justify-between border-t border-[#eeeae2] px-6 py-4 text-xs text-neutral-500">
-              <span>Hiển thị 4 đơn hàng mẫu</span>
-              <button type="button" className="underline underline-offset-4">
+              <span>
+                {data.recentOrders.length > 0
+                  ? `Hiển thị ${data.recentOrders.length} đơn hàng gần nhất`
+                  : "Chưa có đơn hàng"}
+              </span>
+              <a
+                href="/admin/don-hang"
+                className="underline underline-offset-4"
+              >
                 Xem chi tiết
-              </button>
+              </a>
             </div>
           </section>
 
