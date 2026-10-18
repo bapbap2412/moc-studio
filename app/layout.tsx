@@ -1,21 +1,9 @@
 import { Analytics } from '@vercel/analytics/next'
 import type { Metadata, Viewport } from 'next'
-import { Be_Vietnam_Pro, Playfair_Display } from 'next/font/google'
 import { CartProvider } from '@/components/cart-provider'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
 import './globals.css'
-
-const beVietnam = Be_Vietnam_Pro({
-  subsets: ['latin', 'vietnamese'],
-  weight: ['300', '400', '500', '600'],
-  variable: '--font-be-vietnam',
-})
-
-const playfair = Playfair_Display({
-  subsets: ['latin', 'vietnamese'],
-  variable: '--font-playfair',
-})
 
 export const metadata: Metadata = {
   title: {
@@ -46,7 +34,7 @@ export default function RootLayout({
   children: React.ReactNode
 }>) {
   return (
-    <html lang="vi" className={`${beVietnam.variable} ${playfair.variable}`}>
+    <html lang="vi">
       <body className="antialiased">
         <CartProvider>
           <div className="flex min-h-dvh flex-col">

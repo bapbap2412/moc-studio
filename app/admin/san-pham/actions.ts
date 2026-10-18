@@ -94,7 +94,7 @@ async function saveVariants(
   productId: string,
   productName: string,
   variants: VariantInput[],
-) {
+): Promise<{ ok: true } | { ok: false; error: string }> {
   const [rows] = await conn.execute<RowDataPacket[]>(
     "SELECT id, color_id, size_id FROM product_variants WHERE product_id = ? FOR UPDATE",
     [productId],
@@ -106,7 +106,7 @@ async function saveVariants(
   const existingIds = new Set(rows.map((row) => String(row.id)));
   if (submittedIds.size !== (variants.filter((variant) => variant.id).length) ||
       [...existingIds].some((id) => !submittedIds.has(id))) {
-    return { error: "Danh sách biến thể đã thay đổi. Vui lòng tải lại trang rồi thử lại." };
+    return { ok: false, error: "Danh sách biến thể đã thay đổi. Vui lòng tải lại trang rồi thử lại." };
   }
 
   for (const variant of variants) {
@@ -114,18 +114,18 @@ async function saveVariants(
     const existingId = existingByCombination.get(key);
     if (variant.id) {
       if (existingId !== variant.id) {
-        return { error: "Biến thể không thuộc sản phẩm này. Vui lòng tải lại trang." };
+        return { ok: false, error: "Biến thể không thuộc sản phẩm này. Vui lòng tải lại trang." };
       }
       await conn.execute(
         "UPDATE product_variants SET stock_quantity = ? WHERE id = ? AND product_id = ?",
         [variant.stockQuantity, variant.id, productId],
       );
     } else {
-      if (existingId) return { error: "Tổ hợp màu sắc và kích cỡ đã tồn tại." };
+      if (existingId) return { ok: false, error: "Tổ hợp màu sắc và kích cỡ đã tồn tại." };
       await insertVariant(conn, productId, productName, variant);
     }
   }
-  return { ok: true as const };
+  return { ok: true };
 }
 
 function parseProduct(
@@ -274,7 +274,7 @@ export async function createProduct(formData: FormData): Promise<ActionResult> {
       [id, p.categoryId, p.productType, p.name, slug, p.description, p.basePrice, p.salePrice, p.gender, p.status, p.isFeatured, p.isNew],
     );
     const variantSave = await saveVariants(conn, id, p.name, variants);
-    if ("error" in variantSave) {
+    if (!variantSave.ok) {
       await conn.rollback();
       return { ok: false, message: variantSave.error };
     }

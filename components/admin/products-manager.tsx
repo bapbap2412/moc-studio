@@ -204,7 +204,8 @@ export function ProductsManager({
                         {p.category_name ?? "—"}
                       </td>
                       <td className="px-6 py-4 text-neutral-600">
-                        {PRODUCT_TYPES[p.product_type] ?? PRODUCT_TYPES.other}
+                        {PRODUCT_TYPES[p.product_type as keyof typeof PRODUCT_TYPES] ??
+                          PRODUCT_TYPES.other}
                       </td>
                       <td className="px-6 py-4">
                         <span className="font-medium">
