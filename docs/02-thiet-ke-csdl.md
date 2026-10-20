@@ -25,8 +25,9 @@ Chọn `moc_studio`, rồi chạy các file SQL đúng thứ tự, mỗi file m�
 4. `scripts/004_refine_accessory_product_types.sql` — phân loại chi tiết phụ kiện.
 5. `scripts/005_make_address_district_optional.sql` — cho phép bỏ cấp quận/huyện.
 6. `scripts/006_add_product_is_new.sql` — thêm cờ sản phẩm mới.
+7. `scripts/007_reduce_product_prices.sql` — giảm giá gốc, giá khuyến mãi và giá ghi đè của biến thể xuống 1/10; giữ nguyên giá các đơn đã đặt.
 
-Không chạy các migration `002`–`006` lặp lại trên cùng database. Chúng là migration một lần, không tự ghi nhận lịch sử đã chạy.
+Không chạy các migration `002`–`006` lặp lại trên cùng database. Chúng là migration một lần, không tự ghi nhận lịch sử đã chạy. Migration `007` tự ghi nhận trong `schema_migrations` và có thể chạy lại an toàn.
 
 Tạo `.env.local` từ `.env.example`, đặt tài khoản MySQL có quyền tối thiểu trên database này và tạo `SESSION_SECRET` ngẫu nhiên dài ít nhất 32 ký tự. Không dùng tài khoản `root` trong môi trường triển khai.
 

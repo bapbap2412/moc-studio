@@ -122,6 +122,7 @@ try {
     "scripts/004_refine_accessory_product_types.sql",
     "scripts/005_make_address_district_optional.sql",
     "scripts/006_add_product_is_new.sql",
+    "scripts/007_reduce_product_prices.sql",
   ]) await applySqlFile(testConnection, file);
 
   const customerId = id();
