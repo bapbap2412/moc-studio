@@ -26,6 +26,8 @@ type ProductRow = RowDataPacket & {
   is_featured: number | boolean;
   is_new: number | boolean;
   image_url: string | null;
+  review_rating: number | null;
+  review_count: number;
 };
 
 export async function getStoreProducts(): Promise<Product[]> {
@@ -34,6 +36,8 @@ export async function getStoreProducts(): Promise<Product[]> {
       `SELECT p.id, p.category_id, p.product_type, p.name, p.slug, p.description,
         p.material, p.care_instructions, p.base_price, p.sale_price, p.gender,
         p.is_featured, p.is_new,
+        (SELECT AVG(r.rating) FROM reviews r WHERE r.product_id = p.id) AS review_rating,
+        (SELECT COUNT(*) FROM reviews r WHERE r.product_id = p.id) AS review_count,
         (SELECT pi.url FROM product_images pi WHERE pi.product_id = p.id ORDER BY pi.sort_order, pi.id LIMIT 1) AS image_url
        FROM products p
        WHERE p.status = 'active'
@@ -87,8 +91,8 @@ export async function getStoreProducts(): Promise<Product[]> {
         colorIds: [...new Set(variants.map((variant) => variant.colorId))],
         sizeIds: [...new Set(variants.map((variant) => variant.sizeId))],
         variants,
-        rating: 0,
-        reviewCount: 0,
+        rating: Number(row.review_rating ?? 0),
+        reviewCount: Number(row.review_count ?? 0),
       };
     });
   } catch (error) {

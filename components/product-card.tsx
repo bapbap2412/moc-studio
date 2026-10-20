@@ -2,6 +2,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { getColor, type Product } from '@/lib/data'
 import { formatPrice } from '@/lib/format'
+import { WishlistButton } from '@/components/product/wishlist-button'
 
 export function ProductCard({ product, priority = false }: { product: Product; priority?: boolean }) {
   const discount = product.salePrice
@@ -9,7 +10,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
     : 0
 
   return (
-    <article className="group">
+    <article className="group relative">
       <Link href={`/san-pham/${product.slug}`} className="block">
         <div className="relative aspect-[3/4] overflow-hidden bg-muted">
           <Image
@@ -59,6 +60,9 @@ export function ProductCard({ product, priority = false }: { product: Product; p
           </ul>
         </div>
       </Link>
+      <div className="absolute top-3 right-3 z-10">
+        <WishlistButton productId={product.id} compact />
+      </div>
     </article>
   )
 }

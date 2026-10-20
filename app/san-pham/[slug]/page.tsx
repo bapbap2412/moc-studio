@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { ProductCard } from '@/components/product-card'
 import { ProductPurchase } from '@/components/product/product-purchase'
+import { ReviewsList } from '@/components/product/reviews-list'
 import { getCategoryById, products as sampleProducts } from '@/lib/data'
 import { getStoreProductBySlug, getStoreProducts } from '@/lib/store-products'
 
@@ -72,6 +73,8 @@ export default async function ProductPage({ params }: { params: Params }) {
           <ProductPurchase product={product} />
         </div>
       </div>
+
+      <ReviewsList productId={product.id} slug={product.slug} />
 
       {related.length > 0 && (
         <section aria-labelledby="related-heading" className="pt-24">

@@ -6,7 +6,7 @@
 
 @theme inline {
   --font-sans: Arial, "Helvetica Neue", ui-sans-serif, system-ui, sans-serif;
-  --font-serif: Georgia, "Times New Roman", ui-serif, serif;
+  --font-serif: "Times New Roman", Georgia, ui-serif, serif;
   --color-ring: var(--ring);
   --color-input: var(--input);
   --color-border: var(--border);

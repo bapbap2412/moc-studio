@@ -8,6 +8,7 @@ import { useCart } from '@/components/cart-provider'
 import { effectivePrice, getColor, getSize, type Product } from '@/lib/data'
 import { formatPrice } from '@/lib/format'
 import { cn } from '@/lib/utils'
+import { WishlistButton } from '@/components/product/wishlist-button'
 
 export function ProductPurchase({ product }: { product: Product }) {
   const { addItem } = useCart()
@@ -113,7 +114,7 @@ export function ProductPurchase({ product }: { product: Product }) {
       <fieldset>
         <div className="flex items-center justify-between">
           <legend className="text-sm">Kích cỡ</legend>
-          <Link href="#" className="text-xs underline underline-offset-4 text-muted-foreground hover:text-foreground">
+          <Link href="/huong-dan-chon-size" className="text-xs underline underline-offset-4 text-muted-foreground hover:text-foreground">
             Hướng dẫn chọn size
           </Link>
         </div>
@@ -195,6 +196,7 @@ export function ProductPurchase({ product }: { product: Product }) {
           )}
         </button>
       </div>
+      <WishlistButton productId={product.id} />
       {added && (
         <Link href="/gio-hang" className="-mt-3 text-center text-sm underline underline-offset-4">
           Xem giỏ hàng

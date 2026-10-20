@@ -6,7 +6,7 @@ VALUES (
   CONVERT(0x5472E1BABB20656D USING utf8mb4),
   'tre-em',
   CONVERT(0x5472616E67207068E1BBA5632074686FE1BAA369206DC3A1692064C3A06E682063686F2062C3A9 USING utf8mb4),
-  '/images/cat-men.png',
+  '/images/cat-kid.webp',
   3
 )
 ON DUPLICATE KEY UPDATE
@@ -16,3 +16,8 @@ ON DUPLICATE KEY UPDATE
   sort_order = VALUES(sort_order);
 
 UPDATE categories SET sort_order = 4 WHERE slug = 'phu-kien';
+
+UPDATE categories AS child
+JOIN categories AS parent ON parent.slug = 'nu'
+SET child.parent_id = parent.id
+WHERE child.slug = 'tre-em';

@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { Toaster } from "sonner";
 import { getSession } from "@/lib/session";
+import { hasAdminAccess } from "@/lib/critical-rules";
 
 export default async function AdminLayout({
   children,
@@ -13,7 +14,7 @@ export default async function AdminLayout({
     redirect("/dang-nhap");
   }
 
-  if (session.role !== "admin") {
+  if (!hasAdminAccess(session.role)) {
     redirect("/");
   }
 

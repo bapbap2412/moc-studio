@@ -7,13 +7,14 @@ import { CheckCircle2 } from 'lucide-react'
 import { useCart } from '@/components/cart-provider'
 import { OrderSummary } from '@/components/cart/order-summary'
 import { formatPrice } from '@/lib/format'
+import { calculateOrderAmounts } from '@/lib/critical-rules'
 import { cn } from '@/lib/utils'
-import { submitCustomerOrder } from '@/app/thanh-toan/actions'
+import { previewCoupon } from '@/app/thanh-toan/actions'
 
 const paymentMethods = [
   { value: 'cod', label: 'Thanh toán khi nhận hàng (COD)', note: 'Trả tiền mặt khi nhận hàng' },
   { value: 'bank_transfer', label: 'Chuyển khoản ngân hàng', note: 'Thông tin tài khoản sẽ được gửi qua email' },
-  { value: 'ewallet', label: 'Ví điện tử (MoMo, ZaloPay)', note: 'Quét mã QR để thanh toán' },
+  { value: 'ewallet', label: 'Ví MoMo', note: 'Thanh toán an toàn qua cổng MoMo' },
 ]
 
 const inputClass =
@@ -21,6 +22,7 @@ const inputClass =
 
 type Province = { code: number; name: string }
 type Ward = { code: number; name: string }
+type PaymentDetails = { bankName: string; bankAccount: string; bankAccountName: string; momoEnabled: boolean }
 
 function Field({ id, label, className, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return (
@@ -33,12 +35,18 @@ function Field({ id, label, className, ...props }: React.InputHTMLAttributes<HTM
   )
 }
 
-export function CheckoutForm() {
+export function CheckoutForm({ paymentDetails }: { paymentDetails: PaymentDetails }) {
   const { items, subtotal, clear } = useCart()
   const [payment, setPayment] = useState('cod')
   const [orderCode, setOrderCode] = useState<string | null>(null)
+  const [paymentError, setPaymentError] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState('')
+  const [couponInput, setCouponInput] = useState('')
+  const [couponCode, setCouponCode] = useState('')
+  const [couponDiscount, setCouponDiscount] = useState(0)
+  const [couponMessage, setCouponMessage] = useState('')
+  const [couponBusy, setCouponBusy] = useState(false)
   const [provinces, setProvinces] = useState<Province[]>([])
   const [provinceCode, setProvinceCode] = useState('')
   const [provinceName, setProvinceName] = useState('')
@@ -105,14 +113,22 @@ export function CheckoutForm() {
 
     const formData = new FormData(e.currentTarget)
     formData.set('items', JSON.stringify(items.map(({ variantId, quantity }) => ({ variantId, quantity }))))
+    formData.set('couponCode', couponCode)
 
     try {
-      const result = await submitCustomerOrder(formData)
+      const response = await fetch('/api/checkout', { method: 'POST', body: formData })
+      const result = await response.json() as { ok: boolean; code?: string; message?: string; paymentUrl?: string; paymentError?: boolean }
       if (!result.ok) {
-        setSubmitError(result.message)
+        setSubmitError(result.message ?? 'Không thể đặt hàng. Vui lòng thử lại.')
         return
       }
-      setOrderCode(result.code)
+      if (result.paymentUrl) {
+        clear()
+        window.location.assign(result.paymentUrl)
+        return
+      }
+      setOrderCode(result.code ?? null)
+      setPaymentError(Boolean(result.paymentError))
       clear()
     } catch {
       setSubmitError('Không thể kết nối máy chủ để đặt hàng. Vui lòng thử lại.')
@@ -121,7 +137,30 @@ export function CheckoutForm() {
     }
   }
 
+  async function applyCoupon() {
+    if (couponBusy) return
+    setCouponBusy(true)
+    setCouponMessage('')
+    try {
+      const result = await previewCoupon(couponInput, subtotal)
+      if (!result.ok) {
+        setCouponCode('')
+        setCouponDiscount(0)
+        setCouponMessage(result.message)
+      } else {
+        setCouponCode(result.code)
+        setCouponDiscount(result.discount)
+        setCouponMessage(`Đã áp dụng ${result.code}: giảm ${formatPrice(result.discount)}.`)
+      }
+    } catch {
+      setCouponMessage('Không thể kiểm tra mã lúc này. Vui lòng thử lại.')
+    } finally {
+      setCouponBusy(false)
+    }
+  }
+
   if (orderCode) {
+    const hasPaymentDetails = Boolean(paymentDetails.bankName && paymentDetails.bankAccount && paymentDetails.bankAccountName)
     return (
       <div className="mt-10 flex flex-col items-center gap-4 bg-secondary px-6 py-20 text-center">
         <CheckCircle2 className="size-10 text-accent" aria-hidden="true" />
@@ -131,6 +170,28 @@ export function CheckoutForm() {
           nhận trong thời gian sớm nhất.
         </p>
         <p className="text-sm text-muted-foreground">Trạng thái đơn: Đang xử lý · Thanh toán: Chưa thanh toán</p>
+        {payment === 'ewallet' && paymentError && (
+          <div role="alert" className="max-w-lg border border-amber-300 bg-background p-5 text-sm">
+            MoMo chưa trả về liên kết thanh toán. Đơn {orderCode} đã được tạo và đang chờ thanh toán; vui lòng liên hệ hotline 02838505520 để được hỗ trợ.
+          </div>
+        )}
+        {payment === 'bank_transfer' && (
+          <div className="max-w-lg border border-border bg-background p-5 text-left text-sm">
+            <p className="font-medium">Hướng dẫn chuyển khoản</p>
+            {hasPaymentDetails ? (
+              <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2">
+                <dt className="text-muted-foreground">Ngân hàng</dt><dd>{paymentDetails.bankName}</dd>
+                <dt className="text-muted-foreground">Số tài khoản</dt><dd>{paymentDetails.bankAccount}</dd>
+                <dt className="text-muted-foreground">Chủ tài khoản</dt><dd>{paymentDetails.bankAccountName}</dd>
+                <dt className="text-muted-foreground">Nội dung</dt><dd className="font-semibold">{orderCode}</dd>
+                <dt className="text-muted-foreground">Số tiền</dt><dd className="font-semibold">{formatPrice(calculateOrderAmounts(subtotal, couponDiscount).total)}</dd>
+              </dl>
+            ) : (
+              <p className="mt-2 text-muted-foreground">Cửa hàng chưa cấu hình thông tin nhận tiền. Vui lòng liên hệ hotline 02838505520 và cung cấp mã đơn {orderCode}; đơn hàng vẫn đang chờ thanh toán.</p>
+            )}
+            <p className="mt-3 text-xs text-muted-foreground">Đơn chỉ được xác nhận thanh toán sau khi cửa hàng đối soát giao dịch.</p>
+          </div>
+        )}
         <div className="mt-2 flex flex-wrap justify-center gap-3">
           <Link href="/tai-khoan" className="inline-flex h-12 items-center border border-border px-7 text-sm font-medium hover:bg-background">
             Theo dõi đơn hàng
@@ -230,21 +291,42 @@ export function CheckoutForm() {
                   name="payment"
                   value={m.value}
                   checked={payment === m.value}
+                  disabled={m.value === 'ewallet' && !paymentDetails.momoEnabled}
                   onChange={() => setPayment(m.value)}
                   className="mt-0.5 size-4 accent-[var(--foreground)]"
                 />
                 <span>
                   <span className="block text-sm font-medium">{m.label}</span>
-                  <span className="block text-xs text-muted-foreground">{m.note}</span>
+                  <span className="block text-xs text-muted-foreground">{m.value === 'ewallet' && !paymentDetails.momoEnabled ? 'MoMo chưa được cấu hình, hiện chưa thể chọn.' : m.note}</span>
                 </span>
               </label>
             ))}
           </div>
+          {payment === 'bank_transfer' && (
+            <p className="mt-3 border-l-2 border-border pl-3 text-xs leading-relaxed text-muted-foreground">
+              Sau khi đặt hàng, chuyển đúng số tiền và ghi mã đơn hàng trong nội dung. {paymentDetails.bankName && paymentDetails.bankAccount ? `Tài khoản nhận: ${paymentDetails.bankName} · ${paymentDetails.bankAccount} · ${paymentDetails.bankAccountName}.` : 'Thông tin tài khoản sẽ hiển thị sau khi cửa hàng cấu hình BANK_NAME, BANK_ACCOUNT_NO và BANK_ACCOUNT_NAME.'} Cửa hàng sẽ đối soát thủ công.
+            </p>
+          )}
+          {payment === 'ewallet' && paymentDetails.momoEnabled && (
+            <p className="mt-3 border-l-2 border-border pl-3 text-xs leading-relaxed text-muted-foreground">
+              Sau khi đặt đơn, bạn sẽ được chuyển đến cổng MoMo. Trạng thái đơn chỉ đổi sang đã thanh toán sau khi máy chủ xác minh thông báo giao dịch có chữ ký hợp lệ từ MoMo.
+            </p>
+          )}
         </fieldset>
       </div>
 
       <div className="lg:sticky lg:top-32 lg:self-start">
-        <OrderSummary subtotal={subtotal}>
+        <OrderSummary subtotal={subtotal} discount={couponDiscount}>
+          <div className="border-t border-border pt-4">
+            <label htmlFor="couponCodeInput" className="text-xs text-muted-foreground">Mã giảm giá</label>
+            <div className="mt-2 flex gap-2">
+              <input id="couponCodeInput" value={couponInput} onChange={(event) => setCouponInput(event.target.value.toUpperCase())} maxLength={30} className="h-10 min-w-0 flex-1 border border-input bg-background px-3 text-sm" placeholder="Nhập mã" />
+              <button type="button" onClick={applyCoupon} disabled={couponBusy || !couponInput.trim()} className="border border-border px-3 text-xs disabled:opacity-50">{couponBusy ? 'Đang kiểm tra' : couponCode ? 'Áp dụng lại' : 'Áp dụng'}</button>
+            </div>
+            {couponCode && <button type="button" className="mt-2 text-xs underline" onClick={() => { setCouponCode(''); setCouponDiscount(0); setCouponMessage('Đã bỏ mã giảm giá.') }}>Bỏ mã {couponCode}</button>}
+            {couponMessage && <p role="status" className="mt-2 text-xs text-muted-foreground">{couponMessage}</p>}
+            <input type="hidden" name="couponCode" value={couponCode} />
+          </div>
           <ul className="flex flex-col gap-3 border-t border-border pt-4">
             {items.map((item) => (
               <li key={item.variantId} className="flex items-center gap-3">

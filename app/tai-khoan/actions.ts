@@ -3,6 +3,7 @@
 import bcrypt from "bcryptjs";
 import type { RowDataPacket } from "mysql2/promise";
 import { revalidatePath } from "next/cache";
+import { randomUUID } from "node:crypto";
 import pool from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { PHONE_REGEX } from "@/lib/admin-server";
@@ -94,9 +95,9 @@ export async function updateAccountProfile(
       } else {
         await pool.execute(
           `INSERT INTO addresses
-           (user_id, recipient_name, phone, province, ward, street, is_default)
-           VALUES (?, ?, ?, ?, ?, ?, 1)`,
-          [session.userId, fullName, phone, province, ward, street],
+           (id, user_id, recipient_name, phone, province, ward, street, is_default)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 1)`,
+          [randomUUID(), session.userId, fullName, phone, province, ward, street],
         );
       }
     }

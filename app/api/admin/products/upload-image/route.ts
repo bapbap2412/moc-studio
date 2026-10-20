@@ -3,6 +3,7 @@ import { mkdir, writeFile } from "node:fs/promises";
 import path from "node:path";
 import { NextResponse } from "next/server";
 import { getSession } from "@/lib/session";
+import { hasAdminAccess } from "@/lib/critical-rules";
 
 export const runtime = "nodejs";
 
@@ -15,7 +16,7 @@ const ALLOWED_TYPES = {
 
 export async function POST(request: Request) {
   const session = await getSession();
-  if (session?.role !== "admin") {
+  if (!hasAdminAccess(session?.role)) {
     return NextResponse.json({ error: "Bạn cần đăng nhập bằng tài khoản quản trị." }, { status: 403 });
   }
 

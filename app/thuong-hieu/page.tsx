@@ -15,7 +15,7 @@ export default function BrandPage() {
         <span className="mx-2" aria-hidden="true">/</span>
         <span className="text-foreground">Giới thiệu về MỘC</span>
       </nav>
-      <section className="mt-6 grid items-center gap-8 bg-secondary md:grid-cols-2 md:gap-12">
+      <section id="chat-lieu" className="mt-6 grid items-center gap-8 bg-secondary md:grid-cols-2 md:gap-12">
         <div className="relative aspect-[4/3] md:aspect-[5/4]">
           <Image src="/images/hero.png" alt="Bộ sưu tập thời trang MỘC với chất liệu tự nhiên" fill priority sizes="(min-width: 768px) 50vw, 100vw" className="object-cover" />
         </div>

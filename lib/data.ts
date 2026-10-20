@@ -1,5 +1,5 @@
 // Dữ liệu mẫu cho giai đoạn 1 — cấu trúc khớp với scripts/001_create_schema.sql.
-// Giai đoạn 2 sẽ thay các hàm bên dưới bằng truy vấn tới Neon Postgres.
+// Product data is loaded from MySQL by lib/store-products.ts.
 
 import { PRODUCT_TYPES, type ProductType } from '@/lib/product-types'
 export { PRODUCT_TYPES, type ProductType } from '@/lib/product-types'

@@ -2,6 +2,7 @@
 'use client'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import { cn } from '@/lib/utils'
 
 const inputClass =
@@ -208,13 +209,12 @@ export function AuthForm() {
         </div>
 
         {mode === 'login' && (
-          <a
-            href="#"
-            onClick={(e) => e.preventDefault()}
+          <Link
+            href="/quen-mat-khau"
             className="self-end text-xs text-muted-foreground underline underline-offset-4 hover:text-foreground"
           >
             Quên mật khẩu?
-          </a>
+          </Link>
         )}
 
         <button

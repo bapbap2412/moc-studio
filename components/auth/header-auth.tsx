@@ -113,6 +113,7 @@ export function HeaderAuth() {
           </span>
         </span>
       </Link>
+        {user.role === "customer" && <Link href="/wishlist" className="text-sm hover:underline">Yêu thích</Link>}
 
       <button
         type="button"

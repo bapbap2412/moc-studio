@@ -66,5 +66,5 @@
 
 ## 7. Lộ trình
 - **Giai đoạn 1 (hiện tại):** Phân tích yêu cầu, thiết kế CSDL, thiết kế UI/UX & dựng giao diện với dữ liệu mẫu.
-- **Giai đoạn 2:** Kết nối CSDL Neon Postgres, đăng nhập (Better Auth), giỏ hàng & đặt hàng thật.
+- **Giai đoạn 2:** Kết nối CSDL MySQL, đăng nhập, giỏ hàng & đặt hàng thật.
 - **Giai đoạn 3:** Trang quản trị, thanh toán online, thống kê.

@@ -4,7 +4,7 @@ export function getShippingFee(subtotal: number) {
   return subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : SHIPPING_FEE
 }
 
-export function OrderSummary({ subtotal, children }: { subtotal: number; children?: React.ReactNode }) {
+export function OrderSummary({ subtotal, discount = 0, children }: { subtotal: number; discount?: number; children?: React.ReactNode }) {
   const shipping = getShippingFee(subtotal)
   const remaining = FREE_SHIPPING_THRESHOLD - subtotal
 
@@ -30,9 +30,15 @@ export function OrderSummary({ subtotal, children }: { subtotal: number; childre
           <dt className="text-muted-foreground">Phí vận chuyển</dt>
           <dd>{shipping === 0 ? 'Miễn phí' : formatPrice(shipping)}</dd>
         </div>
+        {discount > 0 && (
+          <div className="flex justify-between text-accent">
+            <dt>Giảm giá</dt>
+            <dd>-{formatPrice(discount)}</dd>
+          </div>
+        )}
         <div className="flex justify-between border-t border-border pt-3 text-base font-medium">
           <dt>Tổng cộng</dt>
-          <dd>{formatPrice(subtotal + shipping)}</dd>
+          <dd>{formatPrice(subtotal + shipping - discount)}</dd>
         </div>
       </dl>
       {children}

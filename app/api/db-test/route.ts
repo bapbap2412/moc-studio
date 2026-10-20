@@ -3,13 +3,17 @@ import { NextResponse } from "next/server";
 import pool from "@/lib/db";
 
 export async function GET() {
+  if (process.env.NODE_ENV === "production") {
+    return new NextResponse(null, { status: 404 });
+  }
+
   try {
-    const [rows] = await pool.query("SELECT DATABASE() AS db, VERSION() AS version");
+    await pool.query("SELECT 1");
 
     return NextResponse.json({
       success: true,
       message: "Kết nối MySQL thành công",
-      data: rows,
+      data: null,
     });
   } catch (error) {
     console.error("MySQL connection error:", error);
