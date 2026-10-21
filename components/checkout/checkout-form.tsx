@@ -14,7 +14,7 @@ import { previewCoupon } from '@/app/thanh-toan/actions'
 const paymentMethods = [
   { value: 'cod', label: 'Thanh toán khi nhận hàng (COD)', note: 'Trả tiền mặt khi nhận hàng' },
   { value: 'bank_transfer', label: 'Chuyển khoản ngân hàng', note: 'Thông tin tài khoản sẽ được gửi qua email' },
-  { value: 'ewallet', label: 'Ví MoMo', note: 'Thanh toán an toàn qua cổng MoMo' },
+  { value: 'ewallet', label: 'VNPay', note: 'Thanh toán qua cổng VNPay bằng thẻ, tài khoản ngân hàng hoặc QR' },
 ]
 
 const inputClass =
@@ -22,7 +22,7 @@ const inputClass =
 
 type Province = { code: number; name: string }
 type Ward = { code: number; name: string }
-type PaymentDetails = { bankName: string; bankAccount: string; bankAccountName: string; momoEnabled: boolean }
+type PaymentDetails = { bankName: string; bankAccount: string; bankAccountName: string; vnpayEnabled: boolean }
 
 function Field({ id, label, className, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return (
@@ -172,7 +172,7 @@ export function CheckoutForm({ paymentDetails }: { paymentDetails: PaymentDetail
         <p className="text-sm text-muted-foreground">Trạng thái đơn: Đang xử lý · Thanh toán: Chưa thanh toán</p>
         {payment === 'ewallet' && paymentError && (
           <div role="alert" className="max-w-lg border border-amber-300 bg-background p-5 text-sm">
-            MoMo chưa trả về liên kết thanh toán. Đơn {orderCode} đã được tạo và đang chờ thanh toán; vui lòng liên hệ hotline 02838505520 để được hỗ trợ.
+            VNPay chưa trả về liên kết thanh toán. Đơn {orderCode} đã được tạo và đang chờ thanh toán; vui lòng liên hệ hotline 02838505520 để được hỗ trợ.
           </div>
         )}
         {payment === 'bank_transfer' && (
@@ -220,8 +220,8 @@ export function CheckoutForm({ paymentDetails }: { paymentDetails: PaymentDetail
       <div className="flex flex-col gap-10">
         <fieldset className="grid gap-4 sm:grid-cols-2">
           <legend className="mb-4 font-serif text-2xl">Thông tin giao hàng</legend>
-          <Field id="fullName" label="Họ và tên" required autoComplete="name" className="sm:col-span-2" />
-          <Field id="phone" label="Số điện thoại" type="tel" required autoComplete="tel" pattern="0[0-9]{9}" title="Số điện thoại gồm 10 chữ số, bắt đầu bằng 0" />
+          <Field id="fullName" label="Họ và tên" required maxLength={120} autoComplete="name" className="sm:col-span-2" />
+          <Field id="phone" label="Số điện thoại" type="tel" required autoComplete="tel" maxLength={10} minLength={10} pattern="0[0-9]{9}" inputMode="numeric" title="Số điện thoại gồm đúng 10 chữ số và bắt đầu bằng 0" onInput={(event) => { event.currentTarget.value = event.currentTarget.value.replace(/\D/g, '').slice(0, 10) }} />
           <div className="flex flex-col gap-1.5">
             <label htmlFor="province" className="text-xs text-muted-foreground">Tỉnh / Thành phố</label>
             <select
@@ -266,12 +266,12 @@ export function CheckoutForm({ paymentDetails }: { paymentDetails: PaymentDetail
             </select>
           </div>
           {locationError && <p role="alert" className="text-xs text-destructive sm:col-span-2">{locationError}</p>}
-          <Field id="street" label="Số nhà, tên đường" required autoComplete="street-address" />
+          <Field id="street" label="Số nhà, tên đường" required maxLength={255} autoComplete="street-address" />
           <div className="flex flex-col gap-1.5 sm:col-span-2">
             <label htmlFor="note" className="text-xs text-muted-foreground">
               Ghi chú (không bắt buộc)
             </label>
-            <textarea id="note" name="note" rows={3} className={cn(inputClass, 'h-auto py-2.5')} />
+            <textarea id="note" name="note" rows={3} maxLength={1000} className={cn(inputClass, 'h-auto py-2.5')} />
           </div>
         </fieldset>
 
@@ -291,13 +291,13 @@ export function CheckoutForm({ paymentDetails }: { paymentDetails: PaymentDetail
                   name="payment"
                   value={m.value}
                   checked={payment === m.value}
-                  disabled={m.value === 'ewallet' && !paymentDetails.momoEnabled}
+                  disabled={m.value === 'ewallet' && !paymentDetails.vnpayEnabled}
                   onChange={() => setPayment(m.value)}
                   className="mt-0.5 size-4 accent-[var(--foreground)]"
                 />
                 <span>
                   <span className="block text-sm font-medium">{m.label}</span>
-                  <span className="block text-xs text-muted-foreground">{m.value === 'ewallet' && !paymentDetails.momoEnabled ? 'MoMo chưa được cấu hình, hiện chưa thể chọn.' : m.note}</span>
+                  <span className="block text-xs text-muted-foreground">{m.value === 'ewallet' && !paymentDetails.vnpayEnabled ? 'VNPay chưa được cấu hình, hiện chưa thể chọn.' : m.note}</span>
                 </span>
               </label>
             ))}
@@ -307,9 +307,9 @@ export function CheckoutForm({ paymentDetails }: { paymentDetails: PaymentDetail
               Sau khi đặt hàng, chuyển đúng số tiền và ghi mã đơn hàng trong nội dung. {paymentDetails.bankName && paymentDetails.bankAccount ? `Tài khoản nhận: ${paymentDetails.bankName} · ${paymentDetails.bankAccount} · ${paymentDetails.bankAccountName}.` : 'Thông tin tài khoản sẽ hiển thị sau khi cửa hàng cấu hình BANK_NAME, BANK_ACCOUNT_NO và BANK_ACCOUNT_NAME.'} Cửa hàng sẽ đối soát thủ công.
             </p>
           )}
-          {payment === 'ewallet' && paymentDetails.momoEnabled && (
+          {payment === 'ewallet' && paymentDetails.vnpayEnabled && (
             <p className="mt-3 border-l-2 border-border pl-3 text-xs leading-relaxed text-muted-foreground">
-              Sau khi đặt đơn, bạn sẽ được chuyển đến cổng MoMo. Trạng thái đơn chỉ đổi sang đã thanh toán sau khi máy chủ xác minh thông báo giao dịch có chữ ký hợp lệ từ MoMo.
+              Sau khi đặt đơn, bạn sẽ được chuyển đến cổng VNPay. Trạng thái đơn chỉ đổi sang đã thanh toán sau khi máy chủ xác minh IPN có chữ ký hợp lệ từ VNPay.
             </p>
           )}
         </fieldset>

@@ -42,7 +42,8 @@ export function Hero() {
           className={`-z-10 object-cover transition-opacity duration-1000 ${index === activeImage ? 'opacity-100' : 'opacity-0'}`}
         />
       ))}
-      <div className="absolute inset-0 -z-10 bg-gradient-to-t from-foreground/70 via-foreground/20 to-transparent" />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-t from-foreground/70 via-foreground/20 to-transparent dark:from-black/85 dark:via-black/35" />
+      <div className="absolute inset-0 -z-10 bg-gradient-to-r from-foreground/45 via-foreground/15 to-transparent dark:from-black/65 dark:via-black/25" />
       <div className="mx-auto w-full max-w-7xl px-4 pb-14 text-primary-foreground md:px-8 md:pb-20">
         <p className="text-xs tracking-[0.3em] uppercase">Bộ sưu tập Hè 2026</p>
         <h1 className="mt-4 max-w-2xl font-serif text-5xl leading-[1.05] text-balance md:text-7xl">

@@ -102,7 +102,7 @@ export function AccountProfileForm({
       </div>
       <div className="flex flex-col gap-1.5">
         <label htmlFor="phone" className="text-sm text-muted-foreground">Số điện thoại</label>
-        <input id="phone" name="phone" type="tel" required maxLength={20} autoComplete="tel" defaultValue={phone} className={inputClass} />
+        <input id="phone" name="phone" type="tel" required maxLength={10} minLength={10} pattern="0[0-9]{9}" inputMode="numeric" title="Số điện thoại gồm đúng 10 chữ số và bắt đầu bằng 0" onInput={(event) => { event.currentTarget.value = event.currentTarget.value.replace(/\D/g, '').slice(0, 10) }} autoComplete="tel" defaultValue={phone} className={inputClass} />
       </div>
 
       <div className="border-t border-border pt-5 sm:col-span-2">

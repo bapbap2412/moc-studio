@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { randomUUID } from "node:crypto";
 import bcrypt from "bcryptjs";
 import pool from "@/lib/db";
+import { EMAIL_REGEX, PHONE_REGEX } from "@/lib/admin-server";
 
 export const runtime = "nodejs";
 
@@ -37,16 +38,23 @@ export async function POST(request: Request) {
       );
     }
 
-    if (fullName.length > 120 || email.length > 255 || phone.length > 20) {
+    if (fullName.length > 120 || email.length > 255) {
       return NextResponse.json(
         { message: "Họ tên hoặc email quá dài." },
         { status: 400 }
       );
     }
 
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!EMAIL_REGEX.test(email)) {
       return NextResponse.json(
         { message: "Email không hợp lệ." },
+        { status: 400 }
+      );
+    }
+
+    if (!PHONE_REGEX.test(phone)) {
+      return NextResponse.json(
+        { message: "Số điện thoại phải gồm đúng 10 chữ số và bắt đầu bằng 0." },
         { status: 400 }
       );
     }

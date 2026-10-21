@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import { CheckoutForm } from '@/components/checkout/checkout-form'
-import { isMomoConfigured } from '@/lib/momo'
+import { isVnpayConfigured } from '@/lib/vnpay'
 
 export const metadata: Metadata = { title: 'Thanh toán' }
 export const dynamic = 'force-dynamic'
@@ -10,7 +10,7 @@ export default function CheckoutPage() {
     bankName: process.env.BANK_NAME ?? '',
     bankAccount: process.env.BANK_ACCOUNT_NO ?? '',
     bankAccountName: process.env.BANK_ACCOUNT_NAME ?? '',
-    momoEnabled: isMomoConfigured(),
+    vnpayEnabled: isVnpayConfigured(),
   }
 
   return (

@@ -41,6 +41,9 @@ export async function updateAccountProfile(
   if (hasAddress && (!province || !ward || !street)) {
     return { ok: false, message: "Vui lòng nhập đủ tỉnh/thành phố, phường/xã và số nhà, tên đường." };
   }
+  if (province.length > 100 || ward.length > 100 || street.length > 255) {
+    return { ok: false, message: "Tỉnh/thành và phường/xã tối đa 100 ký tự; số nhà, tên đường tối đa 255 ký tự." };
+  }
 
   const changingPassword = Boolean(currentPassword || newPassword || confirmPassword);
   if (changingPassword) {

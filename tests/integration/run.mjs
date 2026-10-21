@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { createHmac, randomUUID } from "node:crypto";
-import { createServer } from "node:http";
 import { createRequire } from "node:module";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
@@ -23,7 +22,6 @@ const user = process.env.TEST_DB_USER ?? process.env.DB_USER ?? "root";
 const password = process.env.TEST_DB_PASSWORD ?? process.env.DB_PASSWORD ?? "";
 const dbName = `moc_it_${Date.now().toString(36)}`;
 const appPort = 32000 + (Date.now() % 20000);
-const momoPort = appPort + 1;
 const baseUrl = `http://127.0.0.1:${appPort}`;
 const customerEmail = `customer-${dbName}@example.test`;
 const adminEmail = `admin-${dbName}@example.test`;
@@ -31,7 +29,6 @@ const testPassword = "IntegrationPass123!";
 let adminConnection;
 let appProcess;
 let testConnection;
-let fakeMomoServer;
 let cleanupRequired = false;
 
 function log(name) { process.stdout.write(`\n[RUN] ${name}\n`); }
@@ -80,25 +77,15 @@ function checkoutForm({ variantId, quantity = 1, couponCode = "", payment = "cod
   return form;
 }
 
-function signMomo(secret, values) {
-  return createHmac("sha256", secret).update(values.join("&"), "utf8").digest("hex");
+function canonicalVnpay(params) {
+  return Object.keys(params).filter((key) => key.startsWith("vnp_") && key !== "vnp_SecureHash" && key !== "vnp_SecureHashType")
+    .sort().map((key) => `${encodeURIComponent(key)}=${encodeURIComponent(params[key]).replace(/%20/g, "+")}`).join("&");
 }
 
-function signedIpn({ orderCode, amount, requestId, resultCode = 0 }) {
-  const body = {
-    orderType: "momo_wallet", amount, partnerCode: "MOMO_TEST_PARTNER", orderId: orderCode,
-    extraData: "", transId: 700000001, responseTime: Date.now(), resultCode,
-    message: resultCode === 0 ? "Successful" : "Payment failed", payType: "qr", requestId,
-    orderInfo: `Thanh toan don hang ${orderCode}`,
-  };
-  const fields = [
-    `accessKey=MOMO_TEST_ACCESS`, `amount=${body.amount}`, `extraData=${body.extraData}`,
-    `message=${body.message}`, `orderId=${body.orderId}`, `orderInfo=${body.orderInfo}`,
-    `orderType=${body.orderType}`, `partnerCode=${body.partnerCode}`, `payType=${body.payType}`,
-    `requestId=${body.requestId}`, `responseTime=${body.responseTime}`, `resultCode=${body.resultCode}`,
-    `transId=${body.transId}`,
-  ];
-  return { ...body, signature: signMomo("momo-test-secret", fields) };
+function signedVnpay(params) {
+  const signed = { ...params };
+  signed.vnp_SecureHash = createHmac("sha512", "vnpay-test-secret").update(canonicalVnpay(signed), "utf8").digest("hex");
+  return signed;
 }
 
 async function checkout(cookie, input) {
@@ -162,45 +149,13 @@ try {
     BANK_NAME: "Test Bank",
     BANK_ACCOUNT_NO: "000111222333",
     BANK_ACCOUNT_NAME: "MOC TEST ACCOUNT",
-    MOMO_ENVIRONMENT: "test",
-    MOMO_PARTNER_CODE: "MOMO_TEST_PARTNER",
-    MOMO_ACCESS_KEY: "MOMO_TEST_ACCESS",
-    MOMO_SECRET_KEY: "momo-test-secret",
-    MOMO_TEST_API_BASE_URL: `http://127.0.0.1:${momoPort}`,
+    VNPAY_ENVIRONMENT: "test",
+    VNPAY_TMN_CODE: "VNPAY_TEST_TMN",
+    VNPAY_HASH_SECRET: "vnpay-test-secret",
+    VNPAY_TEST_PAYMENT_URL: `http://127.0.0.1:${appPort}/fake-vnpay-payment`,
     SITE_URL: baseUrl,
     PORT: String(appPort),
   };
-  let createRequest;
-  fakeMomoServer = createServer(async (request, response) => {
-    const chunks = [];
-    for await (const chunk of request) chunks.push(chunk);
-    createRequest = JSON.parse(Buffer.concat(chunks).toString("utf8"));
-    const requestFields = [
-      `accessKey=MOMO_TEST_ACCESS`, `amount=${createRequest.amount}`, `extraData=${createRequest.extraData}`,
-      `ipnUrl=${createRequest.ipnUrl}`, `orderId=${createRequest.orderId}`, `orderInfo=${createRequest.orderInfo}`,
-      `partnerCode=${createRequest.partnerCode}`, `redirectUrl=${createRequest.redirectUrl}`,
-      `requestId=${createRequest.requestId}`, `requestType=${createRequest.requestType}`,
-    ];
-    assert.equal(createRequest.signature, signMomo("momo-test-secret", requestFields));
-    const result = {
-      partnerCode: createRequest.partnerCode, requestId: createRequest.requestId,
-      orderId: createRequest.orderId, amount: Number(createRequest.amount), responseTime: Date.now(),
-      message: "Successful", resultCode: 0, payUrl: `http://127.0.0.1:${momoPort}/pay/${createRequest.orderId}`,
-    };
-    const responseFields = [
-      `accessKey=MOMO_TEST_ACCESS`, `amount=${result.amount}`, `message=${result.message}`,
-      `orderId=${result.orderId}`, `partnerCode=${result.partnerCode}`, `payUrl=${result.payUrl}`,
-      `requestId=${result.requestId}`, `responseTime=${result.responseTime}`, `resultCode=${result.resultCode}`,
-    ];
-    result.signature = signMomo("momo-test-secret", responseFields);
-    response.writeHead(200, { "Content-Type": "application/json" });
-    response.end(JSON.stringify(result));
-  });
-  await new Promise((resolve, reject) => {
-    fakeMomoServer.once("error", reject);
-    fakeMomoServer.listen(momoPort, "127.0.0.1", resolve);
-  });
-
   appProcess = spawn(process.execPath, [path.join(root, "node_modules/next/dist/bin/next"), "start", "-p", String(appPort)], {
     cwd: root,
     env: appEnv,
@@ -279,45 +234,70 @@ try {
   assert.equal(reviewRows[0].comment, "Updated review");
   ok("wishlist toggles and reviews require a delivered order; repeat review updates existing row");
 
-  log("Bank transfer and MoMo signature/IPN flow");
+  log("Bank transfer and VNPay signature/IPN flow");
   const checkoutPage = await fetch(`${baseUrl}/thanh-toan`);
   const checkoutHtml = await checkoutPage.text();
   assert.ok(checkoutHtml.includes("Test Bank"));
   assert.ok(checkoutHtml.includes("000111222333"));
   assert.ok(checkoutHtml.includes("MOC TEST ACCOUNT"));
-  assert.ok(checkoutHtml.includes("momoEnabled") && checkoutHtml.includes("true"));
+  assert.ok(checkoutHtml.includes("vnpayEnabled") && checkoutHtml.includes("true"));
   const bankOrder = await checkout(customerLogin.cookie, { variantId: variants.bank, payment: "bank_transfer" });
   assert.equal(bankOrder.status, 200, await bankOrder.clone().text());
   const bankResult = await bankOrder.json();
   const walletOrder = await checkout(customerLogin.cookie, { variantId: variants.wallet, payment: "ewallet" });
   assert.equal(walletOrder.status, 200, await walletOrder.clone().text());
   const walletResult = await walletOrder.json();
-  assert.equal(walletResult.paymentUrl, `http://127.0.0.1:${momoPort}/pay/${walletResult.code}`);
-  assert.equal(createRequest.requestType, "captureWallet");
+  const paymentUrl = new URL(walletResult.paymentUrl);
+  assert.equal(paymentUrl.origin, `http://127.0.0.1:${appPort}`);
+  assert.equal(paymentUrl.pathname, "/fake-vnpay-payment");
+  const paymentParams = Object.fromEntries(paymentUrl.searchParams.entries());
+  assert.equal(paymentParams.vnp_TmnCode, "VNPAY_TEST_TMN");
+  assert.equal(paymentParams.vnp_TxnRef, walletResult.code);
+  assert.equal(paymentParams.vnp_Version, "2.1.0");
+  assert.equal(paymentParams.vnp_SecureHash, signedVnpay(Object.fromEntries(Object.entries(paymentParams).filter(([key]) => key !== "vnp_SecureHash"))).vnp_SecureHash);
   const [paymentRows] = await testConnection.execute("SELECT payment_method,payment_status FROM orders WHERE code IN (?,?) ORDER BY payment_method", [bankResult.code, walletResult.code]);
   assert.equal(paymentRows.length, 2);
   assert.deepEqual(paymentRows.map((row) => row.payment_status), ["unpaid", "unpaid"]);
   assert.deepEqual(paymentRows.map((row) => row.payment_method), ["bank_transfer", "ewallet"]);
   const [walletDetails] = await testConnection.execute("SELECT total,payment_status FROM orders WHERE code=?", [walletResult.code]);
-  const ipnUrl = `${baseUrl}/api/payments/momo/ipn`;
-  const invalidIpn = signedIpn({ orderCode: walletResult.code, amount: Number(walletDetails[0].total), requestId: createRequest.requestId });
-  invalidIpn.signature = "0".repeat(64);
-  const invalidNotification = await fetch(ipnUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(invalidIpn) });
-  assert.equal(invalidNotification.status, 400);
-  const failedNotification = await fetch(ipnUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(signedIpn({ orderCode: walletResult.code, amount: Number(walletDetails[0].total), requestId: createRequest.requestId, resultCode: 1006 })) });
-  assert.equal(failedNotification.status, 204);
+  const ipnUrl = `${baseUrl}/api/payments/vnpay/ipn`;
+  const notificationFields = {
+    vnp_TmnCode: "VNPAY_TEST_TMN", vnp_TxnRef: walletResult.code,
+    vnp_Amount: String(Number(walletDetails[0].total) * 100), vnp_CurrCode: "VND",
+    vnp_OrderInfo: `Thanh toan don hang ${walletResult.code}`, vnp_TransactionNo: "12345678",
+    vnp_BankCode: "NCB", vnp_PayDate: "20261021120000", vnp_CardType: "ATM",
+  };
+  const returnParams = signedVnpay({ ...notificationFields, vnp_ResponseCode: "00", vnp_TransactionStatus: "00" });
+  const browserReturn = await fetch(`${baseUrl}/api/payments/vnpay/return?${new URLSearchParams(returnParams)}`, { redirect: "manual" });
+  assert.equal(browserReturn.status, 307);
+  assert.match(browserReturn.headers.get("location"), /payment=processing/);
+  const tamperedReturn = { ...returnParams, vnp_SecureHash: "0".repeat(128) };
+  const invalidBrowserReturn = await fetch(`${baseUrl}/api/payments/vnpay/return?${new URLSearchParams(tamperedReturn)}`, { redirect: "manual" });
+  assert.match(invalidBrowserReturn.headers.get("location"), /payment=unverified/);
+  const [unpaidAfterReturn] = await testConnection.execute("SELECT payment_status FROM orders WHERE code=?", [walletResult.code]);
+  assert.equal(unpaidAfterReturn[0].payment_status, "unpaid");
+
+  const invalidIpn = signedVnpay({ ...notificationFields, vnp_ResponseCode: "00", vnp_TransactionStatus: "00" });
+  invalidIpn.vnp_SecureHash = "0".repeat(128);
+  const invalidNotification = await fetch(`${ipnUrl}?${new URLSearchParams(invalidIpn)}`);
+  assert.equal((await invalidNotification.json()).RspCode, "97");
+  const mismatchedAmount = signedVnpay({ ...notificationFields, vnp_Amount: String((Number(walletDetails[0].total) + 100) * 100), vnp_ResponseCode: "00", vnp_TransactionStatus: "00" });
+  const mismatchNotification = await fetch(`${ipnUrl}?${new URLSearchParams(mismatchedAmount)}`);
+  assert.equal((await mismatchNotification.json()).RspCode, "04");
+  const failedNotification = await fetch(`${ipnUrl}?${new URLSearchParams(signedVnpay({ ...notificationFields, vnp_ResponseCode: "24", vnp_TransactionStatus: "02" }))}`);
+  assert.equal((await failedNotification.json()).RspCode, "00");
   const [unpaidAfterFailure] = await testConnection.execute("SELECT payment_status FROM orders WHERE code=?", [walletResult.code]);
   assert.equal(unpaidAfterFailure[0].payment_status, "unpaid");
-  const validIpn = signedIpn({ orderCode: walletResult.code, amount: Number(walletDetails[0].total), requestId: createRequest.requestId });
-  const validNotification = await fetch(ipnUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(validIpn) });
-  assert.equal(validNotification.status, 204);
-  const duplicateNotification = await fetch(ipnUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(validIpn) });
-  assert.equal(duplicateNotification.status, 204);
+  const validIpn = signedVnpay({ ...notificationFields, vnp_ResponseCode: "00", vnp_TransactionStatus: "00" });
+  const validNotification = await fetch(`${ipnUrl}?${new URLSearchParams(validIpn)}`);
+  assert.equal((await validNotification.json()).RspCode, "00");
+  const duplicateNotification = await fetch(`${ipnUrl}?${new URLSearchParams(validIpn)}`);
+  assert.equal((await duplicateNotification.json()).RspCode, "02");
   const [paidAfterNotification] = await testConnection.execute("SELECT payment_status FROM orders WHERE code=?", [walletResult.code]);
   assert.equal(paidAfterNotification[0].payment_status, "paid");
   const paymentGuide = await (await fetch(`${baseUrl}/van-chuyen-thanh-toan`)).text();
-  assert.match(paymentGuide, /MoMo/);
-  ok("bank details, signed MoMo requests/responses, IPN signature validation and idempotent payment updates");
+  assert.match(paymentGuide, /VNPay/);
+  ok("bank details, signed VNPay URLs and returns, IPN validation, and idempotent payment updates");
 
   const dbTestProduction = await fetch(`${baseUrl}/api/db-test`);
   assert.equal(dbTestProduction.status, 404);
@@ -328,7 +308,6 @@ try {
   process.exitCode = 1;
 } finally {
   if (appProcess && appProcess.exitCode === null) appProcess.kill();
-  if (fakeMomoServer) await new Promise((resolve) => fakeMomoServer.close(resolve));
   if (testConnection) await testConnection.end().catch(() => {});
   if (adminConnection) {
     if (cleanupRequired && process.env.TEST_KEEP_DB !== "1") await adminConnection.query(`DROP DATABASE IF EXISTS \`${dbName}\``).catch((error) => {

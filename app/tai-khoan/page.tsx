@@ -19,7 +19,8 @@ type AddressRow = RowDataPacket & {
   street: string;
 };
 
-export default async function AccountPage() {
+export default async function AccountPage({ searchParams }: { searchParams: Promise<{ payment?: string }> }) {
+  const { payment } = await searchParams;
   const session = await getSession();
 
   if (!session) {
@@ -77,6 +78,10 @@ export default async function AccountPage() {
         <p className="mt-2 text-sm text-muted-foreground">
           Xin chào, chào mừng bạn quay lại MỘC Studio.
         </p>
+
+        {payment === "processing" && <p role="status" className="mt-4 border border-border bg-secondary p-4 text-sm">VNPay đã trả kết quả. Đơn hàng sẽ hiển thị đã thanh toán sau khi máy chủ xác nhận IPN.</p>}
+        {payment === "failed" && <p role="status" className="mt-4 border border-border bg-secondary p-4 text-sm">Giao dịch VNPay chưa thành công. Bạn có thể kiểm tra trạng thái đơn hàng bên dưới hoặc liên hệ cửa hàng.</p>}
+        {payment === "unverified" && <p role="alert" className="mt-4 border border-border bg-secondary p-4 text-sm">Không xác minh được kết quả trả về từ VNPay. Hãy kiểm tra trạng thái đơn hàng bên dưới.</p>}
 
         <section className="mt-8 rounded-xl border border-border p-6">
           <h2 className="text-lg font-semibold">

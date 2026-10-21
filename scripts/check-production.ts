@@ -13,7 +13,7 @@ async function main() {
   const required = [
     "DB_HOST", "DB_PORT", "DB_USER", "DB_PASSWORD", "DB_NAME", "SESSION_SECRET",
     "SITE_URL", "BANK_NAME", "BANK_ACCOUNT_NO", "BANK_ACCOUNT_NAME",
-    "MOMO_ENVIRONMENT", "MOMO_PARTNER_CODE", "MOMO_ACCESS_KEY", "MOMO_SECRET_KEY",
+    "VNPAY_ENVIRONMENT", "VNPAY_TMN_CODE", "VNPAY_HASH_SECRET",
   ];
   const missing = required.filter((key) => !process.env[key]?.trim());
   if (missing.length) throw new Error(`Missing production variables: ${missing.join(", ")}`);
@@ -24,7 +24,7 @@ async function main() {
   if (process.env.SESSION_SECRET!.length < 32 || /replace-with|change-me|example/i.test(process.env.SESSION_SECRET!)) {
     throw new Error("SESSION_SECRET must be a unique random value at least 32 characters long.");
   }
-  if (process.env.MOMO_ENVIRONMENT !== "production") throw new Error("MOMO_ENVIRONMENT must be production for a production preflight.");
+  if (process.env.VNPAY_ENVIRONMENT !== "production") throw new Error("VNPAY_ENVIRONMENT must be production for a production preflight.");
 
   let siteUrl: URL;
   try { siteUrl = new URL(process.env.SITE_URL!); } catch { throw new Error("SITE_URL must be a valid public URL."); }
@@ -74,7 +74,7 @@ async function main() {
   if (!response.ok) throw new Error(`SITE_URL returned HTTP ${response.status}.`);
   if (new URL(response.url).protocol !== "https:") throw new Error("The public site redirected away from HTTPS.");
   console.log(`PASS: ${new URL(response.url).origin} is reachable over HTTPS.`);
-  console.log("PASS: required bank and MoMo production variables are present (secret values were not printed).");
+  console.log("PASS: required bank and VNPay production variables are present (secret values were not printed).");
 }
 
 main().catch((error: unknown) => {

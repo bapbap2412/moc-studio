@@ -7,7 +7,7 @@ import pool from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { PHONE_REGEX } from "@/lib/admin-server";
 import { calculateOrderAmounts, hasStockForOrder } from "@/lib/critical-rules";
-import { isMomoConfigured } from "@/lib/momo";
+import { isVnpayConfigured } from "@/lib/vnpay";
 
 const MAX_LINES = 30;
 const MAX_QTY_PER_VARIANT = 20;
@@ -99,12 +99,15 @@ export async function submitCustomerOrder(formData: FormData): Promise<CheckoutR
   if (!recipientName || recipientName.length > 120) return { ok: false, message: "Vui lòng nhập họ tên người nhận." };
   if (!PHONE_REGEX.test(phone)) return { ok: false, message: "Số điện thoại không hợp lệ." };
   if (!province || !ward || !street) return { ok: false, message: "Vui lòng nhập đầy đủ địa chỉ giao hàng." };
+  if (province.length > 100 || ward.length > 100 || street.length > 255) {
+    return { ok: false, message: "Tỉnh/thành và phường/xã tối đa 100 ký tự; số nhà, tên đường tối đa 255 ký tự." };
+  }
   if (note.length > 1000) return { ok: false, message: "Ghi chú tối đa 1000 ký tự." };
   if (!["cod", "bank_transfer", "ewallet"].includes(paymentMethod)) {
     return { ok: false, message: "Phương thức thanh toán không hợp lệ." };
   }
-  if (paymentMethod === "ewallet" && !isMomoConfigured()) {
-    return { ok: false, message: "Thanh toán MoMo hiện chưa được cấu hình cho cửa hàng." };
+  if (paymentMethod === "ewallet" && !isVnpayConfigured()) {
+    return { ok: false, message: "Thanh toán VNPay hiện chưa được cấu hình cho cửa hàng." };
   }
 
   let rawItems: unknown;

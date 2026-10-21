@@ -319,7 +319,7 @@ export function ProductsManager({
         title="Xóa sản phẩm?"
         message={
           <>
-            Sản phẩm <strong className="text-[#24241f]">{deleting?.name}</strong>{" "}
+            Sản phẩm <strong className="text-[#4b5735]">{deleting?.name}</strong>{" "}
             cùng toàn bộ biến thể và ảnh sẽ bị xóa vĩnh viễn. Các đơn hàng cũ vẫn giữ
             lại tên sản phẩm. Nếu chỉ muốn ngừng bán, hãy chuyển sang{" "}
             <strong>Lưu trữ</strong>.
@@ -442,7 +442,7 @@ function ProductForm({
                       checked={checked}
                       disabled={alreadyUsed}
                       onChange={() => setSelectedColorIds((current) => checked ? current.filter((id) => id !== color.id) : [...current, color.id])}
-                      className="accent-[#24241f]"
+                      className="accent-[#4b5735]"
                     />
                     <span className="size-3 rounded-full border border-black/10" style={{ backgroundColor: color.hexCode }} />
                     {color.name}
@@ -464,7 +464,7 @@ function ProductForm({
                       checked={checked}
                       disabled={alreadyUsed}
                       onChange={() => setSelectedSizeIds((current) => checked ? current.filter((id) => id !== size.id) : [...current, size.id])}
-                      className="accent-[#24241f]"
+                      className="accent-[#4b5735]"
                     />
                     {size.name}
                   </label>
@@ -614,7 +614,7 @@ function ProductForm({
             type="checkbox"
             name="is_new"
             defaultChecked={product?.is_new ?? false}
-            className="h-4 w-4 accent-[#24241f]"
+            className="h-4 w-4 accent-[#4b5735]"
           />
           Hàng mới
         </label>
@@ -623,7 +623,7 @@ function ProductForm({
             type="checkbox"
             name="is_featured"
             defaultChecked={product?.is_featured ?? false}
-            className="h-4 w-4 accent-[#24241f]"
+            className="h-4 w-4 accent-[#4b5735]"
           />
           Nổi bật (hiện ở trang chủ)
         </label>

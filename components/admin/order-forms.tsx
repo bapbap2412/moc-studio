@@ -86,7 +86,7 @@ function ContactFields({
         <input id="o-name" name="recipient_name" required maxLength={120} value={values.recipient_name} onChange={set("recipient_name")} className={inputClass} />
       </Field>
       <Field label="Số điện thoại" htmlFor="o-phone" required>
-        <input id="o-phone" name="phone" type="tel" required maxLength={20} value={values.phone} onChange={set("phone")} className={inputClass} />
+        <input id="o-phone" name="phone" type="tel" required maxLength={10} minLength={10} pattern="0[0-9]{9}" inputMode="numeric" title="Số điện thoại gồm đúng 10 chữ số và bắt đầu bằng 0" value={values.phone} onChange={(event) => onChange({ ...values, phone: event.target.value.replace(/\D/g, '').slice(0, 10) })} className={inputClass} />
       </Field>
       <Field label="Email" htmlFor="o-email" required className="sm:col-span-2">
         <input id="o-email" name="email" type="email" required maxLength={255} value={values.email} onChange={set("email")} className={inputClass} />

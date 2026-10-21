@@ -278,7 +278,7 @@ export function CustomersManager({ customers }: { customers: AdminCustomer[] }) 
         title="Xóa khách hàng?"
         message={
           <>
-            Tài khoản <strong className="text-[#24241f]">{deleting?.full_name}</strong> (
+            Tài khoản <strong className="text-[#4b5735]">{deleting?.full_name}</strong> (
             {deleting?.email}) cùng giỏ hàng và sổ địa chỉ sẽ bị xóa vĩnh viễn.{" "}
             {deleting && deleting.order_count > 0 && (
               <>{deleting.order_count} đơn hàng của khách vẫn được giữ lại.</>

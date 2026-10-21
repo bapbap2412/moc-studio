@@ -36,7 +36,7 @@ export function AdminShell({
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="flex min-h-screen bg-[#f7f6f2] text-[#24241f]">
+    <div className="flex min-h-screen bg-[#f7f6f2] text-[#4b5735]">
       {mobileMenuOpen && (
         <>
           <button
@@ -71,7 +71,7 @@ export function AdminShell({
                       key={item.href}
                       href={item.href}
                       onClick={() => setMobileMenuOpen(false)}
-                      className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition ${active ? "bg-[#24241f] text-white" : "text-neutral-600 hover:bg-[#f5f4ef]"}`}
+                      className={`flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition ${active ? "bg-[#4b5735] text-white" : "text-neutral-600 hover:bg-[#f5f4ef]"}`}
                     >
                       <Icon size={18} strokeWidth={1.7} />
                       {item.label}
@@ -97,7 +97,7 @@ export function AdminShell({
             aria-label={sidebarExpanded ? "Thu gọn thanh quản lý cửa hàng" : "Mở rộng thanh quản lý cửa hàng"}
             aria-expanded={sidebarExpanded}
             title={sidebarExpanded ? "Thu gọn menu" : "Mở rộng menu"}
-            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-neutral-600 transition hover:bg-[#f0eee8] hover:text-[#24241f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#24241f]/20"
+            className="inline-flex size-8 shrink-0 items-center justify-center rounded-lg text-neutral-600 transition hover:bg-[#f0eee8] hover:text-[#4b5735] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4b5735]/20"
           >
             {sidebarExpanded ? <PanelLeftClose size={18} /> : <PanelLeftOpen size={18} />}
           </button>
@@ -120,7 +120,7 @@ export function AdminShell({
                   title={!sidebarExpanded ? item.label : undefined}
                   className={`flex items-center rounded-lg py-3 text-sm transition ${sidebarExpanded ? "gap-3 px-3" : "justify-center px-0"} ${
                     active
-                      ? "bg-[#24241f] text-white"
+                      ? "bg-[#4b5735] text-white"
                       : "text-neutral-600 hover:bg-[#f5f4ef]"
                   }`}
                 >
@@ -153,7 +153,7 @@ export function AdminShell({
               onClick={() => setMobileMenuOpen(true)}
               aria-label="Mở menu quản lý"
               aria-expanded={mobileMenuOpen}
-              className="inline-flex rounded-lg p-2 transition hover:bg-[#f0eee8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#24241f]/20 lg:hidden"
+              className="inline-flex rounded-lg p-2 transition hover:bg-[#f0eee8] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4b5735]/20 lg:hidden"
             >
               <Menu size={20} />
             </button>

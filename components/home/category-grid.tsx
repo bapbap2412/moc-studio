@@ -24,7 +24,7 @@ export function CategoryGrid() {
                 sizes="(min-width: 640px) 33vw, 100vw"
                 className="object-cover transition-transform duration-700 group-hover:scale-105"
               />
-              <div className="absolute inset-0 bg-gradient-to-t from-foreground/60 to-transparent" />
+              <div className="absolute inset-0 bg-gradient-to-t from-[#171613]/85 via-[#171613]/15 to-transparent" />
               <div className="absolute inset-x-0 bottom-0 p-6 text-primary-foreground">
                 <h3 className="font-serif text-3xl">{cat.name}</h3>
                 <p className="mt-1 text-sm text-primary-foreground/80">{cat.description}</p>

@@ -51,4 +51,5 @@ export function readText(formData: FormData, key: string) {
 }
 
 export const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-export const PHONE_REGEX = /^[0-9+\-\s().]{8,20}$/;
+// Vietnamese mobile/landline numbers are stored as 10 digits, including the leading 0.
+export const PHONE_REGEX = /^0[0-9]{9}$/;

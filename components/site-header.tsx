@@ -2,8 +2,8 @@
 
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { useState } from 'react'
-import { ChevronDown, Menu, Search, ShoppingBag, X } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ChevronDown, Menu, Moon, Search, ShoppingBag, Sun, X } from 'lucide-react'
 import { useCart } from '@/components/cart-provider'
 import { HeaderAuth } from "@/components/auth/header-auth";
 import { PRODUCT_TYPES } from '@/lib/product-types'
@@ -36,6 +36,21 @@ export function SiteHeader() {
   const [accessoryMenuOpen, setAccessoryMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
   const [query, setQuery] = useState('')
+  const [theme, setTheme] = useState<'light' | 'dark'>('light')
+
+  useEffect(() => {
+    const savedTheme = window.localStorage.getItem('moc-theme')
+    const nextTheme = savedTheme === 'dark' ? 'dark' : 'light'
+    setTheme(nextTheme)
+    document.documentElement.classList.toggle('dark', nextTheme === 'dark')
+  }, [])
+
+  function toggleTheme() {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark'
+    setTheme(nextTheme)
+    window.localStorage.setItem('moc-theme', nextTheme)
+    document.documentElement.classList.toggle('dark', nextTheme === 'dark')
+  }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault()
@@ -147,6 +162,15 @@ export function SiteHeader() {
             <Search className="size-5" />
           </button>
           <HeaderAuth />
+          <button
+            type="button"
+            onClick={toggleTheme}
+            className="flex size-10 items-center justify-center rounded-sm hover:bg-muted"
+            aria-label={theme === 'dark' ? 'Chuyển sang giao diện sáng' : 'Chuyển sang giao diện tối'}
+            title={theme === 'dark' ? 'Giao diện sáng' : 'Giao diện tối'}
+          >
+            {theme === 'dark' ? <Sun className="size-5" /> : <Moon className="size-5" />}
+          </button>
           <Link
             href="/gio-hang"
             className="relative flex size-10 items-center justify-center rounded-sm hover:bg-muted"

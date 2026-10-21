@@ -15,6 +15,6 @@ export default function SizeGuidePage() {
       </table>
     </div>
     <p className="mt-6 text-xs text-muted-foreground">Đo sát cơ thể bằng thước dây, giữ thước ngang và không siết chặt. Với số đo nằm giữa hai size, cân nhắc chọn size lớn hơn để mặc thoải mái.</p>
-    <p className="mt-4 text-sm">Cần tư vấn? Gọi <a className="underline" href="tel:02838505520">028 3850 5520</a>.</p>
+    <p className="mt-4 text-sm">Cần tư vấn? Gọi <a className="underline" href="tel:0365175711">0365 175 711</a>.</p>
   </main>;
 }

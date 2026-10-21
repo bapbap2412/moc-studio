@@ -200,12 +200,12 @@ export function OrdersManager({
                           onChange={(e) => run(() => updateOrderStatus(o.id, e.target.value))}
                           aria-label={`Trạng thái đơn ${o.code}`}
                           className={cn(
-                            "h-8 cursor-pointer rounded-full border-0 px-3 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-[#24241f]/20 disabled:cursor-wait",
+                            "h-8 cursor-pointer rounded-full border-0 px-3 text-xs font-medium outline-none focus-visible:ring-2 focus-visible:ring-[#4b5735]/20 disabled:cursor-wait",
                             status?.badgeClass ?? "bg-neutral-100 text-neutral-700",
                           )}
                         >
                           {Object.entries(ORDER_STATUSES).map(([value, meta]) => (
-                            <option key={value} value={value} className="bg-white text-[#24241f]">
+                            <option key={value} value={value} className="bg-white text-[#4b5735]">
                               {meta.label}
                             </option>
                           ))}
@@ -289,7 +289,7 @@ export function OrdersManager({
         title="Xóa đơn hàng?"
         message={
           <>
-            Đơn <strong className="text-[#24241f]">{deleting?.code}</strong> sẽ bị xóa vĩnh viễn.
+            Đơn <strong className="text-[#4b5735]">{deleting?.code}</strong> sẽ bị xóa vĩnh viễn.
             Nếu đơn chưa giao (Đang xử lý/Đã xác nhận), tồn kho sẽ được hoàn lại. Để giữ lịch
             sử, bạn nên chuyển trạng thái sang <strong>Đã hủy</strong> thay vì xóa.
           </>

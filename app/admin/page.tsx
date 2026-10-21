@@ -290,7 +290,7 @@ export default async function AdminPage() {
 
             <a
               href="/admin/san-pham"
-              className="inline-flex h-11 items-center justify-center gap-2 bg-[#24241f] px-5 text-sm text-white transition hover:bg-neutral-700"
+              className="inline-flex h-11 items-center justify-center gap-2 bg-[#4b5735] px-5 text-sm text-white transition hover:bg-[#3d482b]"
             >
               <Plus size={17} />
               Thêm sản phẩm

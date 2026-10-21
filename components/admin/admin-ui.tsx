@@ -5,21 +5,21 @@ import { LoaderCircle, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 export const inputClass =
-  "h-10 w-full rounded-lg border border-[#e2ded3] bg-white px-3 text-sm text-[#24241f] outline-none transition placeholder:text-neutral-400 focus:border-[#24241f] focus:ring-2 focus:ring-[#24241f]/10 disabled:cursor-not-allowed disabled:opacity-60";
+  "h-10 w-full rounded-lg border border-[#e2ded3] bg-white px-3 text-sm text-[#4b5735] outline-none transition placeholder:text-neutral-400 focus:border-[#4b5735] focus:ring-2 focus:ring-[#4b5735]/10 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const textareaClass = cn(inputClass, "h-auto min-h-24 py-2.5");
 
 export const primaryButtonClass =
-  "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#24241f] px-4 text-sm font-medium text-white transition hover:bg-neutral-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#24241f]/30 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-[#4b5735] px-4 text-sm font-medium text-white transition hover:bg-[#3d482b] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4b5735]/30 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const secondaryButtonClass =
-  "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#e2ded3] bg-white px-4 text-sm font-medium text-[#24241f] transition hover:bg-[#f5f4ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#24241f]/20 disabled:cursor-not-allowed disabled:opacity-60";
+  "inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-[#e2ded3] bg-white px-4 text-sm font-medium text-[#4b5735] transition hover:bg-[#f5f4ef] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4b5735]/20 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const dangerButtonClass =
   "inline-flex h-10 items-center justify-center gap-2 rounded-lg bg-red-600 px-4 text-sm font-medium text-white transition hover:bg-red-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-400 disabled:cursor-not-allowed disabled:opacity-60";
 
 export const iconButtonClass =
-  "inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-[#f0eee8] hover:text-[#24241f] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#24241f]/20";
+  "inline-flex h-8 w-8 items-center justify-center rounded-lg text-neutral-500 transition hover:bg-[#f0eee8] hover:text-[#4b5735] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4b5735]/20";
 
 export function Modal({
   open,
@@ -55,7 +55,7 @@ export function Modal({
         if (event.target === ref.current) onClose();
       }}
       className={cn(
-        "m-auto w-[calc(100%-2rem)] rounded-xl border border-[#e9e6de] bg-white p-0 text-[#24241f] shadow-xl backdrop:bg-black/40 backdrop:backdrop-blur-[2px]",
+        "m-auto w-[calc(100%-2rem)] rounded-xl border border-[#e9e6de] bg-white p-0 text-[#4b5735] shadow-xl backdrop:bg-black/40 backdrop:backdrop-blur-[2px]",
         size === "sm" && "max-w-md",
         size === "md" && "max-w-2xl",
         size === "lg" && "max-w-4xl",
@@ -146,7 +146,7 @@ export function Field({
 }) {
   return (
     <div className={cn("flex flex-col gap-1.5", className)}>
-      <label htmlFor={htmlFor} className="text-sm font-medium text-[#24241f]">
+      <label htmlFor={htmlFor} className="text-sm font-medium text-[#4b5735]">
         {label}
         {required && <span className="ml-0.5 text-red-600">*</span>}
       </label>
