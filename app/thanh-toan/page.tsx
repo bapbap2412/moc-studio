@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { CheckoutForm } from '@/components/checkout/checkout-form'
 import { isVnpayConfigured } from '@/lib/vnpay'
+import { isSePayConfigured } from '@/lib/payment/sepay'
 
 export const metadata: Metadata = { title: 'Thanh toán' }
 export const dynamic = 'force-dynamic'
@@ -11,6 +12,7 @@ export default function CheckoutPage() {
     bankAccount: process.env.BANK_ACCOUNT_NO ?? '',
     bankAccountName: process.env.BANK_ACCOUNT_NAME ?? '',
     vnpayEnabled: isVnpayConfigured(),
+    sepayEnabled: isSePayConfigured(),
   }
 
   return (

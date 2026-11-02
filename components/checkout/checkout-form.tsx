@@ -15,6 +15,7 @@ const paymentMethods = [
   { value: 'cod', label: 'Thanh toán khi nhận hàng (COD)', note: 'Trả tiền mặt khi nhận hàng' },
   { value: 'bank_transfer', label: 'Chuyển khoản ngân hàng', note: 'Thông tin tài khoản sẽ được gửi qua email' },
   { value: 'ewallet', label: 'VNPay', note: 'Thanh toán qua cổng VNPay bằng thẻ, tài khoản ngân hàng hoặc QR' },
+  { value: 'sepay', label: 'SePay (Sandbox)', note: 'Thanh toán qua cổng thanh toán SePay sandbox' },
 ]
 
 const inputClass =
@@ -22,7 +23,7 @@ const inputClass =
 
 type Province = { code: number; name: string }
 type Ward = { code: number; name: string }
-type PaymentDetails = { bankName: string; bankAccount: string; bankAccountName: string; vnpayEnabled: boolean }
+type PaymentDetails = { bankName: string; bankAccount: string; bankAccountName: string; vnpayEnabled: boolean; sepayEnabled: boolean }
 
 function Field({ id, label, className, ...props }: React.InputHTMLAttributes<HTMLInputElement> & { label: string }) {
   return (
@@ -117,7 +118,7 @@ export function CheckoutForm({ paymentDetails }: { paymentDetails: PaymentDetail
 
     try {
       const response = await fetch('/api/checkout', { method: 'POST', body: formData })
-      const result = await response.json() as { ok: boolean; code?: string; message?: string; paymentUrl?: string; paymentError?: boolean }
+      const result = await response.json() as { ok: boolean; code?: string; message?: string; paymentUrl?: string; paymentError?: boolean; sepay?: { checkoutUrl: string; fields: Record<string, string | number> } }
       if (!result.ok) {
         setSubmitError(result.message ?? 'Không thể đặt hàng. Vui lòng thử lại.')
         return
@@ -125,6 +126,22 @@ export function CheckoutForm({ paymentDetails }: { paymentDetails: PaymentDetail
       if (result.paymentUrl) {
         clear()
         window.location.assign(result.paymentUrl)
+        return
+      }
+      if (result.sepay) {
+        clear()
+        const form = document.createElement('form')
+        form.method = 'POST'
+        form.action = result.sepay.checkoutUrl
+        for (const [name, value] of Object.entries(result.sepay.fields)) {
+          const input = document.createElement('input')
+          input.type = 'hidden'
+          input.name = name
+          input.value = String(value)
+          form.appendChild(input)
+        }
+        document.body.appendChild(form)
+        form.submit()
         return
       }
       setOrderCode(result.code ?? null)
@@ -170,9 +187,9 @@ export function CheckoutForm({ paymentDetails }: { paymentDetails: PaymentDetail
           nhận trong thời gian sớm nhất.
         </p>
         <p className="text-sm text-muted-foreground">Trạng thái đơn: Đang xử lý · Thanh toán: Chưa thanh toán</p>
-        {payment === 'ewallet' && paymentError && (
+        {(payment === 'ewallet' || payment === 'sepay') && paymentError && (
           <div role="alert" className="max-w-lg border border-amber-300 bg-background p-5 text-sm">
-            VNPay chưa trả về liên kết thanh toán. Đơn {orderCode} đã được tạo và đang chờ thanh toán; vui lòng liên hệ hotline 02838505520 để được hỗ trợ.
+            {payment === 'ewallet' ? 'VNPay' : 'SePay'} chưa trả về liên kết thanh toán. Đơn {orderCode} đã được tạo và đang chờ thanh toán; vui lòng liên hệ hotline 02838505520 để được hỗ trợ.
           </div>
         )}
         {payment === 'bank_transfer' && (
@@ -291,13 +308,13 @@ export function CheckoutForm({ paymentDetails }: { paymentDetails: PaymentDetail
                   name="payment"
                   value={m.value}
                   checked={payment === m.value}
-                  disabled={m.value === 'ewallet' && !paymentDetails.vnpayEnabled}
+                  disabled={(m.value === 'ewallet' && !paymentDetails.vnpayEnabled) || (m.value === 'sepay' && !paymentDetails.sepayEnabled)}
                   onChange={() => setPayment(m.value)}
                   className="mt-0.5 size-4 accent-[var(--foreground)]"
                 />
                 <span>
                   <span className="block text-sm font-medium">{m.label}</span>
-                  <span className="block text-xs text-muted-foreground">{m.value === 'ewallet' && !paymentDetails.vnpayEnabled ? 'VNPay chưa được cấu hình, hiện chưa thể chọn.' : m.note}</span>
+                  <span className="block text-xs text-muted-foreground">{m.value === 'ewallet' && !paymentDetails.vnpayEnabled ? 'VNPay chưa được cấu hình, hiện chưa thể chọn.' : m.value === 'sepay' && !paymentDetails.sepayEnabled ? 'SePay sandbox chưa được cấu hình.' : m.note}</span>
                 </span>
               </label>
             ))}

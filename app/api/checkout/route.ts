@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { submitCustomerOrder } from "@/app/thanh-toan/actions";
-import { isSameOriginRequest } from "@/lib/request-security";
+import { getSameOriginOrigin } from "@/lib/request-security";
 import { createVnpayPayment } from "@/lib/vnpay";
+import { createSePayPayment } from "@/lib/payment/sepay";
 
 export const runtime = "nodejs";
 
 export async function POST(request: Request) {
-  if (!isSameOriginRequest(request)) {
+  const requestOrigin = getSameOriginOrigin(request);
+  if (!requestOrigin) {
     return NextResponse.json({ ok: false, message: "Yêu cầu không hợp lệ." }, { status: 403 });
   }
 
@@ -24,6 +26,15 @@ export async function POST(request: Request) {
       return NextResponse.json({ ...result, paymentUrl });
     } catch (error) {
       console.error("VNPay payment initialization failed:", error instanceof Error ? error.message : "Unknown error");
+      return NextResponse.json({ ...result, paymentError: true });
+    }
+  }
+  if (result.ok && formData.get("payment") === "sepay") {
+    try {
+      const payment = await createSePayPayment(result.code, requestOrigin);
+      return NextResponse.json({ ...result, sepay: payment });
+    } catch (error) {
+      console.error("SePay payment initialization failed:", error instanceof Error ? error.message : "Unknown error");
       return NextResponse.json({ ...result, paymentError: true });
     }
   }
