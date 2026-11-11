@@ -1,5 +1,7 @@
 import type { PoolConnection } from "mysql2/promise";
-import { getSession } from "@/lib/session";
+import pool from "@/lib/db";
+import { deleteSession, getSession, type SessionUser } from "@/lib/session";
+import type { RowDataPacket } from "mysql2/promise";
 
 export type ActionResult = { ok: boolean; message: string };
 
@@ -10,7 +12,24 @@ export const UNAUTHORIZED: ActionResult = {
 
 export async function isAdmin() {
   const session = await getSession();
-  return session?.role === "admin";
+  return (await getCurrentAdminSession(session)) !== null;
+}
+
+export async function getCurrentAdminSession(
+  session: SessionUser | null,
+): Promise<SessionUser | null> {
+  if (!session || session.role !== "admin") return null;
+
+  const [rows] = await pool.execute<RowDataPacket[]>(
+    "SELECT email FROM users WHERE id = ? AND role = 'admin' AND is_active = 1 LIMIT 1",
+    [session.userId],
+  );
+  if (rows.length === 0) {
+    await deleteSession();
+    return null;
+  }
+
+  return { ...session, email: String(rows[0].email) };
 }
 
 export function dbErrorCode(error: unknown): string | undefined {

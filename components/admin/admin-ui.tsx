@@ -187,10 +187,12 @@ export function SearchInput({
   value,
   onChange,
   placeholder,
+  name,
 }: {
   value: string;
   onChange: (value: string) => void;
   placeholder: string;
+  name?: string;
 }) {
   return (
     <div className="relative w-full sm:max-w-xs">
@@ -201,6 +203,7 @@ export function SearchInput({
       />
       <input
         type="search"
+        name={name}
         value={value}
         onChange={(event) => onChange(event.target.value)}
         placeholder={placeholder}

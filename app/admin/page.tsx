@@ -83,10 +83,10 @@ const defaultData: DashboardData = {
   bestSellers: [],
 };
 
-async function getDashboardData(): Promise<DashboardData> {
+async function getDashboardData(chartRange: 7 | 30 | 90): Promise<DashboardData> {
   try {
     const days: { key: string; label: string; revenue: number }[] = [];
-    for (let i = 6; i >= 0; i--) {
+    for (let i = chartRange - 1; i >= 0; i--) {
       const d = new Date();
       d.setDate(d.getDate() - i);
       const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -104,7 +104,7 @@ async function getDashboardData(): Promise<DashboardData> {
     ] = await Promise.all([
       pool.query(
         `SELECT
-          (SELECT COALESCE(SUM(total), 0) FROM orders WHERE status != 'cancelled') AS total_revenue,
+          (SELECT COALESCE(SUM(total), 0) FROM orders WHERE status != 'cancelled' AND payment_status = 'paid') AS total_revenue,
           (SELECT COUNT(*) FROM orders) AS total_orders,
           (SELECT COUNT(*) FROM products WHERE status = 'active') AS total_products,
           (SELECT COUNT(*) FROM products WHERE status = 'active' AND is_new = 1) AS new_products,
@@ -113,8 +113,8 @@ async function getDashboardData(): Promise<DashboardData> {
       ),
       pool.query(
         `SELECT
-          COALESCE(SUM(CASE WHEN created_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN total ELSE 0 END), 0) AS this_month_rev,
-          COALESCE(SUM(CASE WHEN created_at >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MONTH), '%Y-%m-01') AND created_at < DATE_FORMAT(NOW(), '%Y-%m-01') THEN total ELSE 0 END), 0) AS last_month_rev,
+          COALESCE(SUM(CASE WHEN payment_status = 'paid' AND created_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN total ELSE 0 END), 0) AS this_month_rev,
+          COALESCE(SUM(CASE WHEN payment_status = 'paid' AND created_at >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MONTH), '%Y-%m-01') AND created_at < DATE_FORMAT(NOW(), '%Y-%m-01') THEN total ELSE 0 END), 0) AS last_month_rev,
           COALESCE(SUM(CASE WHEN created_at >= DATE_FORMAT(NOW(), '%Y-%m-01') THEN 1 ELSE 0 END), 0) AS this_month_orders,
           COALESCE(SUM(CASE WHEN created_at >= DATE_FORMAT(DATE_SUB(NOW(), INTERVAL 1 MONTH), '%Y-%m-01') AND created_at < DATE_FORMAT(NOW(), '%Y-%m-01') THEN 1 ELSE 0 END), 0) AS last_month_orders
         FROM orders
@@ -123,7 +123,7 @@ async function getDashboardData(): Promise<DashboardData> {
       pool.query(
         `SELECT DATE_FORMAT(created_at, '%Y-%m-%d') AS d, COALESCE(SUM(total), 0) AS rev
          FROM orders
-         WHERE status != 'cancelled' AND created_at >= DATE_SUB(CURDATE(), INTERVAL 6 DAY)
+         WHERE status != 'cancelled' AND payment_status = 'paid' AND created_at >= DATE_SUB(CURDATE(), INTERVAL ${chartRange - 1} DAY)
          GROUP BY DATE_FORMAT(created_at, '%Y-%m-%d')
          ORDER BY d`,
       ),
@@ -219,8 +219,10 @@ async function getDashboardData(): Promise<DashboardData> {
   }
 }
 
-export default async function AdminPage() {
-  const data = await getDashboardData();
+export default async function AdminPage({ searchParams }: { searchParams: Promise<{ days?: string }> }) {
+  const { days } = await searchParams;
+  const chartRange: 7 | 30 | 90 = days === "30" ? 30 : days === "90" ? 90 : 7;
+  const data = await getDashboardData(chartRange);
 
   const today = new Date();
   const dateStr = new Intl.DateTimeFormat("vi-VN", {
@@ -233,7 +235,7 @@ export default async function AdminPage() {
 
   const stats = [
     {
-      label: "Tổng doanh thu",
+      label: "Doanh thu đã thanh toán",
       value: formatPrice(data.totalRevenue),
       change: formatChange(data.revenueChange),
       up: data.revenueChange === null ? true : data.revenueChange >= 0,
@@ -332,42 +334,40 @@ export default async function AdminPage() {
 
           <section className="mt-7 grid grid-cols-1 gap-6 xl:grid-cols-3">
             <article className="rounded-xl border border-[#e9e6de] bg-white p-5 md:p-6 xl:col-span-2">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-4">
                 <div>
-                  <h3 className="font-semibold">Doanh thu cửa hàng</h3>
-                  <p className="mt-1 text-xs text-neutral-500">
-                    Biểu đồ minh họa trong 7 ngày gần nhất
-                  </p>
+                  <h3 className="font-semibold">Doanh thu &#273;&#227; thanh to&#225;n &middot; {chartRange} ng&#224;y</h3>
+                  <p className="mt-1 text-xs text-neutral-500">Doanh thu t&#7915; c&#225;c &#273;&#417;n &#273;&#227; thanh to&#225;n</p>
                 </div>
-                <button
-                  type="button"
-                  className="rounded-lg border border-[#e8e5dc] px-3 py-2 text-xs"
-                >
-                  7 ngày gần đây
-                </button>
+                <form action="/admin" method="get" className="flex items-center gap-2">
+                  <select name="days" defaultValue={String(chartRange)} aria-label="Kho&#7843;ng th&#7901;i gian bi&#7875;u &#273;&#7891; doanh thu" className="rounded-lg border border-[#e8e5dc] bg-white px-2 py-2 text-xs">
+                    <option value="7">7 ng&#224;y</option>
+                    <option value="30">30 ng&#224;y</option>
+                    <option value="90">90 ng&#224;y</option>
+                  </select>
+                  <button type="submit" className="rounded-lg border border-[#e8e5dc] px-3 py-2 text-xs hover:bg-[#f5f4ef]">&#193;p d&#7909;ng</button>
+                </form>
               </div>
 
-              <div className="mt-8 flex h-56 items-end gap-3 border-b border-l border-[#eeeae2] px-3 pb-0 pt-4 sm:gap-5">
-                {chartHeights.map((height, index) => (
-                  <div
-                    key={index}
-                    className="flex h-full flex-1 flex-col justify-end"
-                  >
-                    <div
-                      className={`w-full rounded-t-sm ${
-                        index === todayIndex ? "bg-[#34342c]" : "bg-[#d9d5c9]"
-                      }`}
-                      style={{ height: `${height}%` }}
-                      title={`${data.chartDays[index]?.label}: ${formatPrice(data.chartDays[index]?.revenue ?? 0)}`}
-                    />
+              <div className="mt-8 overflow-x-auto">
+                <div className="min-w-[700px]" style={{ width: `${Math.max(100, chartRange * 3.34)}%` }}>
+                  <div className="flex h-56 items-end gap-2 border-b border-l border-[#eeeae2] px-3 pb-0 pt-4 sm:gap-3">
+                    {chartHeights.map((height, index) => (
+                      <div key={index} className="flex h-full min-w-0 flex-1 flex-col justify-end">
+                        <div
+                          className={`w-full rounded-t-sm ${index === todayIndex ? "bg-[#34342c]" : "bg-[#d9d5c9]"}`}
+                          style={{ height: `${height}%` }}
+                          title={`${data.chartDays[index]?.label}: ${formatPrice(data.chartDays[index]?.revenue ?? 0)}`}
+                        />
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
-
-              <div className="mt-3 flex justify-between pl-2 text-[11px] text-neutral-400">
-                {data.chartDays.map((day) => (
-                  <span key={day.label}>{day.label}</span>
-                ))}
+                  <div className="mt-3 flex justify-between pl-2 text-[11px] text-neutral-400">
+                    {data.chartDays.filter((_, index) => index === 0 || index === todayIndex || index % Math.ceil(chartRange / 7) === 0).map((day) => (
+                      <span key={day.label}>{day.label}</span>
+                    ))}
+                  </div>
+                </div>
               </div>
             </article>
 

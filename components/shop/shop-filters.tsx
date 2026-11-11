@@ -1,7 +1,7 @@
 'use client'
 
 import { usePathname, useRouter, useSearchParams } from 'next/navigation'
-import { categories, colors, PRODUCT_TYPES, sizes } from '@/lib/data'
+import { PRODUCT_TYPES, type Category, type Color, type Size } from '@/lib/data'
 import { cn } from '@/lib/utils'
 
 const priceOptions = [
@@ -11,7 +11,7 @@ const priceOptions = [
   { value: '1500000', label: 'Dưới 1.500.000₫' },
 ]
 
-export function ShopFilters() {
+export function ShopFilters({ categories, colors, sizes }: { categories: Category[]; colors: Color[]; sizes: Size[] }) {
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()

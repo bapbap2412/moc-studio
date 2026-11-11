@@ -2,8 +2,8 @@ import type { Metadata } from 'next'
 import { ProductCard } from '@/components/product-card'
 import { ShopFilters } from '@/components/shop/shop-filters'
 import { SortSelect } from '@/components/shop/sort-select'
-import { categories, PRODUCT_TYPES, type ProductFilters, type ProductType } from '@/lib/data'
-import { filterStoreProducts, getStoreProducts } from '@/lib/store-products'
+import { PRODUCT_TYPES, type ProductFilters, type ProductType } from '@/lib/data'
+import { filterStoreProducts, getStoreCatalog, getStoreProducts } from '@/lib/store-products'
 
 export const metadata: Metadata = {
   title: 'Sản phẩm',
@@ -32,9 +32,9 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
     sort: sort === 'price-asc' || sort === 'price-desc' || sort === 'newest' ? sort : undefined,
   }
 
-  const allProducts = await getStoreProducts()
-  const results = filterStoreProducts(allProducts, filters)
-  const category = categories.find((c) => c.slug === filters.category)
+  const [allProducts, catalog] = await Promise.all([getStoreProducts(), getStoreCatalog()])
+  const results = filterStoreProducts(allProducts, filters, catalog)
+  const category = catalog.categories.find((c) => c.slug === filters.category)
   const title = filters.q ? `Kết quả cho “${filters.q}”` : (category?.name ?? 'Tất cả sản phẩm')
 
   return (
@@ -55,7 +55,7 @@ export default async function ProductsPage({ searchParams }: { searchParams: Sea
       </div>
 
       <div className="mt-8 flex flex-col gap-10 lg:flex-row">
-        <ShopFilters />
+        <ShopFilters categories={catalog.categories} colors={catalog.colors} sizes={catalog.sizes} />
         <div className="flex-1">
           {results.length > 0 ? (
             <div className="grid grid-cols-2 gap-x-4 gap-y-10 md:grid-cols-3">

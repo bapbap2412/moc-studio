@@ -1,8 +1,9 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import { categories } from '@/lib/data'
+import { getStoreCatalog } from '@/lib/store-products'
 
-export function CategoryGrid() {
+export async function CategoryGrid() {
+  const { categories } = await getStoreCatalog()
   return (
     <section aria-labelledby="categories-heading" className="mx-auto max-w-7xl px-4 pt-20 md:px-8">
       <div className="flex items-end justify-between gap-4">

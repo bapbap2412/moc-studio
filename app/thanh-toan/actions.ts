@@ -9,6 +9,8 @@ import { PHONE_REGEX } from "@/lib/admin-server";
 import { calculateOrderAmounts, hasStockForOrder } from "@/lib/critical-rules";
 import { isVnpayConfigured } from "@/lib/vnpay";
 import { isSePayConfigured } from "@/lib/payment/sepay";
+import { getStoreSettings } from "@/lib/store-settings";
+import { writeInventoryMovement } from "@/lib/inventory";
 
 const MAX_LINES = 30;
 const MAX_QTY_PER_VARIANT = 20;
@@ -173,7 +175,8 @@ export async function submitCustomerOrder(formData: FormData): Promise<CheckoutR
       couponId = Number(couponResult.coupon.id);
       discountAmount = couponResult.discount;
     }
-    const { shippingFee, discountAmount: finalDiscountAmount, total } = calculateOrderAmounts(subtotal, discountAmount);
+    const settings = await getStoreSettings();
+    const { shippingFee, discountAmount: finalDiscountAmount, total } = calculateOrderAmounts(subtotal, discountAmount, settings.shippingFee, settings.freeShippingThreshold);
     let code = "";
     for (let attempt = 0; attempt < 5 && !code; attempt++) {
       const candidate = generateOrderCode();
@@ -210,6 +213,7 @@ export async function submitCustomerOrder(formData: FormData): Promise<CheckoutR
       if (result.affectedRows === 0) {
         throw new Error(`“${variant.product_name}” vừa hết hàng. Vui lòng kiểm tra giỏ hàng.`);
       }
+      await writeInventoryMovement(conn, String(variant.id), Number(variant.stock_quantity), Number(variant.stock_quantity) - quantity, `Đơn hàng ${code}`);
     }
 
     await conn.commit();

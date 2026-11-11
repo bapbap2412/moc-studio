@@ -1,12 +1,14 @@
 import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE, formatPrice } from '@/lib/format'
 
-export function getShippingFee(subtotal: number) {
-  return subtotal >= FREE_SHIPPING_THRESHOLD || subtotal === 0 ? 0 : SHIPPING_FEE
+export function getShippingFee(subtotal: number, shippingFee = SHIPPING_FEE, freeShippingThreshold = FREE_SHIPPING_THRESHOLD) {
+  return subtotal >= freeShippingThreshold || subtotal === 0 ? 0 : shippingFee
 }
 
-export function OrderSummary({ subtotal, discount = 0, children }: { subtotal: number; discount?: number; children?: React.ReactNode }) {
-  const shipping = getShippingFee(subtotal)
-  const remaining = FREE_SHIPPING_THRESHOLD - subtotal
+export function OrderSummary({ subtotal, discount = 0, children, shippingFee = SHIPPING_FEE, freeShippingThreshold = FREE_SHIPPING_THRESHOLD }: {
+  subtotal: number; discount?: number; children?: React.ReactNode; shippingFee?: number; freeShippingThreshold?: number;
+}) {
+  const shipping = getShippingFee(subtotal, shippingFee, freeShippingThreshold)
+  const remaining = freeShippingThreshold - subtotal
 
   return (
     <div className="flex flex-col gap-4 bg-secondary p-6">
@@ -17,7 +19,7 @@ export function OrderSummary({ subtotal, discount = 0, children }: { subtotal: n
             Mua thêm <span className="font-medium text-foreground">{formatPrice(remaining)}</span> để được miễn phí giao hàng
           </p>
           <div className="mt-2 h-1 bg-border" aria-hidden="true">
-            <div className="h-full bg-accent" style={{ width: `${(subtotal / FREE_SHIPPING_THRESHOLD) * 100}%` }} />
+            <div className="h-full bg-accent" style={{ width: `${Math.min(100, (subtotal / freeShippingThreshold) * 100)}%` }} />
           </div>
         </div>
       )}

@@ -42,6 +42,8 @@ export type Product = {
   imageUrl: string
   colorIds: number[]
   sizeIds: number[]
+  colorOptions: Color[]
+  sizeOptions: Size[]
   variants: ProductVariant[]
   rating: number
   reviewCount: number
@@ -73,7 +75,7 @@ export const sizes: Size[] = [
   { id: 6, name: 'Free size', sortOrder: 6 },
 ]
 
-type ProductSeed = Omit<Product, 'variants'>
+type ProductSeed = Omit<Product, 'variants' | 'colorOptions' | 'sizeOptions'>
 
 const seeds: ProductSeed[] = [
   {
@@ -136,6 +138,8 @@ const seeds: ProductSeed[] = [
 
 export const products: Product[] = seeds.map((seed) => ({
   ...seed,
+  colorOptions: colors.filter((color) => seed.colorIds.includes(color.id)),
+  sizeOptions: sizes.filter((size) => seed.sizeIds.includes(size.id)),
   variants: seed.colorIds.flatMap((colorId) =>
     seed.sizeIds.map((sizeId) => ({
       id: `${seed.id}-${colorId}-${sizeId}`,

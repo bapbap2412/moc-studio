@@ -3,6 +3,7 @@ import type { Metadata, Viewport } from 'next'
 import { CartProvider } from '@/components/cart-provider'
 import { SiteHeader } from '@/components/site-header'
 import { SiteFooter } from '@/components/site-footer'
+import { getStoreSettings } from '@/lib/store-settings'
 import './globals.css'
 
 export const metadata: Metadata = {
@@ -28,19 +29,20 @@ export const viewport: Viewport = {
   themeColor: '#f6f2ec',
 }
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode
 }>) {
+  const settings = await getStoreSettings()
   return (
     <html lang="vi">
       <body className="antialiased">
         <CartProvider>
           <div className="flex min-h-dvh flex-col">
-            <SiteHeader />
+            <SiteHeader freeShippingThreshold={settings.freeShippingThreshold} returnDays={settings.returnDays} />
             <main className="flex-1">{children}</main>
-            <SiteFooter />
+            <SiteFooter tagline={settings.tagline} storeAddress={settings.storeAddress} hotline={settings.hotline} />
           </div>
         </CartProvider>
         {process.env.NODE_ENV === 'production' && <Analytics />}

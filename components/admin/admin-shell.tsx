@@ -7,6 +7,10 @@ import {
   ShoppingBag,
   Users,
   Settings,
+  TicketPercent,
+  Star,
+  Tags,
+  History,
   Menu,
   X,
   PanelLeftClose,
@@ -18,7 +22,12 @@ const navItems = [
   { label: "Sản phẩm", icon: Package, href: "/admin/san-pham" },
   { label: "Đơn hàng", icon: ShoppingBag, href: "/admin/don-hang" },
   { label: "Khách hàng", icon: Users, href: "/admin/khach-hang" },
+  { label: "Mã giảm giá", icon: TicketPercent, href: "/admin/ma-giam-gia" },
+  { label: "Đánh giá", icon: Star, href: "/admin/danh-gia" },
   { label: "Cài đặt", icon: Settings, href: "/admin/cai-dat" },
+  { label: "Danh mục", icon: Tags, href: "/admin/danh-muc" },
+  { label: "Tồn kho", icon: Package, href: "/admin/ton-kho" },
+  { label: "Nhật ký", icon: History, href: "/admin/nhat-ky" },
 ];
 
 export function AdminShell({

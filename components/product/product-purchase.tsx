@@ -5,12 +5,12 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Check, Minus, Plus, Star } from 'lucide-react'
 import { useCart } from '@/components/cart-provider'
-import { effectivePrice, getColor, getSize, type Product } from '@/lib/data'
+import { effectivePrice, type Product } from '@/lib/data'
 import { formatPrice } from '@/lib/format'
 import { cn } from '@/lib/utils'
 import { WishlistButton } from '@/components/product/wishlist-button'
 
-export function ProductPurchase({ product }: { product: Product }) {
+export function ProductPurchase({ product, shippingFee, freeShippingThreshold, returnDays }: { product: Product; shippingFee: number; freeShippingThreshold: number; returnDays: number }) {
   const { addItem } = useCart()
   const pathname = usePathname()
   const [colorId, setColorId] = useState(product.colorIds[0])
@@ -24,7 +24,7 @@ export function ProductPurchase({ product }: { product: Product }) {
 
   const variant = sizeId ? product.variants.find((v) => v.colorId === colorId && v.sizeId === sizeId) : undefined
   const stock = variant?.stockQuantity ?? 0
-  const color = getColor(colorId)
+  const color = product.colorOptions.find((item) => item.id === colorId)
 
   async function handleAdd() {
     if (!variant) {
@@ -55,7 +55,7 @@ export function ProductPurchase({ product }: { product: Product }) {
       name: product.name,
       imageUrl: product.imageUrl,
       colorName: color?.name ?? '',
-      sizeName: getSize(variant.sizeId)?.name ?? '',
+      sizeName: product.sizeOptions.find((item) => item.id === variant.sizeId)?.name ?? '',
       unitPrice: effectivePrice(product),
       quantity,
       maxQuantity: stock,
@@ -88,7 +88,7 @@ export function ProductPurchase({ product }: { product: Product }) {
         </legend>
         <div className="mt-3 flex gap-3">
           {product.colorIds.map((id) => {
-            const c = getColor(id)
+            const c = product.colorOptions.find((item) => item.id === id)
             if (!c) return null
             return (
               <button
@@ -120,7 +120,7 @@ export function ProductPurchase({ product }: { product: Product }) {
         </div>
         <div className="mt-3 flex flex-wrap gap-2">
           {product.sizeIds.map((id) => {
-            const s = getSize(id)
+            const s = product.sizeOptions.find((item) => item.id === id)
             const out = stockFor(id) === 0
             return (
               <button
@@ -219,7 +219,7 @@ export function ProductPurchase({ product }: { product: Product }) {
         <details className="group py-4">
           <summary className="cursor-pointer list-none text-sm font-medium">Giao hàng & đổi trả</summary>
           <p className="mt-3 text-sm leading-relaxed text-muted-foreground">
-            Giao hàng 2–4 ngày toàn quốc. Miễn phí vận chuyển cho đơn từ 1.000.000₫. Đổi trả miễn phí trong 30 ngày.
+            Giao hàng 2–4 ngày toàn quốc. Phí giao hàng {shippingFee.toLocaleString('vi-VN')}₫; miễn phí cho đơn từ {freeShippingThreshold.toLocaleString('vi-VN')}₫. Đổi trả trong {returnDays} ngày.
           </p>
         </details>
       </div>

@@ -4,11 +4,13 @@ import { CartView } from '@/components/cart/cart-view'
 import { CustomerOrderStatuses, type CustomerOrderStatus } from '@/components/orders/customer-order-statuses'
 import { getSession } from '@/lib/session'
 import pool from '@/lib/db'
+import { getStoreSettings } from '@/lib/store-settings'
 
 export const metadata: Metadata = { title: 'Giỏ hàng' }
 
 export default async function CartPage() {
   const session = await getSession()
+  const settings = await getStoreSettings()
   let recentOrders: CustomerOrderStatus[] = []
 
   if (session?.role === 'customer') {
@@ -35,7 +37,7 @@ export default async function CartPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 pt-10 md:px-8">
       <h1 className="font-serif text-4xl md:text-5xl">Giỏ hàng</h1>
-      <CartView />
+      <CartView shippingFee={settings.shippingFee} freeShippingThreshold={settings.freeShippingThreshold} />
       {session?.role === 'customer' && <CustomerOrderStatuses orders={recentOrders} title="Theo dõi đơn hàng" />}
     </div>
   )

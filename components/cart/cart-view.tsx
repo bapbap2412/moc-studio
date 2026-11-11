@@ -7,7 +7,7 @@ import { useCart } from '@/components/cart-provider'
 import { OrderSummary } from '@/components/cart/order-summary'
 import { formatPrice } from '@/lib/format'
 
-export function CartView() {
+export function CartView({ shippingFee, freeShippingThreshold }: { shippingFee: number; freeShippingThreshold: number }) {
   const { items, subtotal, updateQuantity, removeItem } = useCart()
 
   if (items.length === 0) {
@@ -80,7 +80,7 @@ export function CartView() {
       </ul>
 
       <div className="lg:sticky lg:top-32 lg:self-start">
-        <OrderSummary subtotal={subtotal}>
+        <OrderSummary subtotal={subtotal} shippingFee={shippingFee} freeShippingThreshold={freeShippingThreshold}>
           <Link
             href="/thanh-toan"
             className="flex h-12 items-center justify-center bg-primary text-sm font-medium text-primary-foreground hover:bg-primary/85"

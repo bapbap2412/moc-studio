@@ -16,8 +16,13 @@ export function hasStockForOrder(stock: number, quantity: number) {
   return Number.isInteger(stock) && Number.isInteger(quantity) && stock >= 0 && quantity > 0 && stock >= quantity;
 }
 
-export function calculateOrderAmounts(subtotal: number, discount: number) {
-  const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : subtotal > 0 ? SHIPPING_FEE : 0;
+export function calculateOrderAmounts(
+  subtotal: number,
+  discount: number,
+  shippingFeeSetting = SHIPPING_FEE,
+  freeShippingThreshold = FREE_SHIPPING_THRESHOLD,
+) {
+  const shippingFee = subtotal >= freeShippingThreshold ? 0 : subtotal > 0 ? shippingFeeSetting : 0;
   const discountAmount = Math.min(Math.max(0, Math.floor(discount)), Math.max(0, Math.floor(subtotal)));
   return { shippingFee, discountAmount, total: Math.max(0, subtotal + shippingFee - discountAmount) };
 }

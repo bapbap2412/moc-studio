@@ -33,7 +33,7 @@ const columns = [
   },
 ]
 
-export function SiteFooter() {
+export function SiteFooter({ tagline, storeAddress, hotline }: { tagline: string; storeAddress: string; hotline: string }) {
   const pathname = usePathname()
   if (pathname.startsWith('/admin')) return null
 
@@ -43,12 +43,12 @@ export function SiteFooter() {
         <div className="md:col-span-2">
           <p className="font-serif text-3xl tracking-[0.2em]">MỘC</p>
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-primary-foreground/70">
-            Thời trang tối giản từ chất liệu tự nhiên. Thiết kế tại Sài Gòn, may thủ công bởi những người thợ Việt.
+            {tagline}
           </p>
           <address className="mt-6 text-sm not-italic leading-relaxed text-primary-foreground/70">
-            180 Cao Lỗ, Phường Chánh Hưng, Hồ Chí Minh, Việt Nam
+            {storeAddress}
             <br />
-            Hotline: 02838505520
+            Hotline: {hotline}
           </address>
         </div>
         {columns.map((col) => (

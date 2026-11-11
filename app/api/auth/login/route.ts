@@ -13,6 +13,7 @@ type UserRow = {
   password_hash: string;
   full_name: string;
   role: "customer" | "admin";
+  is_active: number;
 };
 
 export async function POST(request: Request) {
@@ -32,7 +33,7 @@ export async function POST(request: Request) {
     }
 
     const [rows] = await pool.execute(
-      `SELECT id, email, password_hash, full_name, role
+      `SELECT id, email, password_hash, full_name, role, is_active
        FROM users
        WHERE email = ?
        LIMIT 1`,
@@ -53,6 +54,13 @@ export async function POST(request: Request) {
     if (user.role !== "admin" && user.role !== "customer") {
       return NextResponse.json(
         { message: "Tài khoản không có quyền đăng nhập." },
+        { status: 403 }
+      );
+    }
+
+    if (Number(user.is_active) !== 1) {
+      return NextResponse.json(
+        { message: "Tài khoản đã bị khóa. Vui lòng liên hệ quản trị viên." },
         { status: 403 }
       );
     }

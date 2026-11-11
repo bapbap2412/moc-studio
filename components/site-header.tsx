@@ -28,7 +28,7 @@ const accessoryLinks = accessoryTypes.map((type) => ({
   label: PRODUCT_TYPES[type],
 }))
 
-export function SiteHeader() {
+export function SiteHeader({ freeShippingThreshold, returnDays }: { freeShippingThreshold: number; returnDays: number }) {
   const { count } = useCart()
   const router = useRouter()
   const [menuOpen, setMenuOpen] = useState(false)
@@ -62,7 +62,7 @@ export function SiteHeader() {
   return (
     <header className="sticky top-0 z-40 border-b border-border bg-background/90 backdrop-blur">
       <p className="bg-primary px-4 py-2 text-center text-xs tracking-wide text-primary-foreground">
-        Miễn phí giao hàng cho đơn từ 1.000.000₫ · Đổi trả trong 30 ngày
+        Miễn phí giao hàng cho đơn từ {new Intl.NumberFormat('vi-VN').format(freeShippingThreshold)}₫ · Đổi trả trong {returnDays} ngày
       </p>
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between gap-4 px-4 md:px-8">
         <div className="flex flex-1 items-center gap-8">

@@ -5,13 +5,13 @@ import pool from "@/lib/db";
 import { getSession } from "@/lib/session";
 import { ReviewForm } from "@/components/product/review-form";
 
-type ReviewRow = RowDataPacket & { rating: number; comment: string | null; full_name: string; created_at: string };
+type ReviewRow = RowDataPacket & { rating: number; comment: string | null; admin_reply: string | null; full_name: string; created_at: string };
 
 export async function ReviewsList({ productId, slug }: { productId: string; slug: string }) {
   const [rows] = await pool.execute<ReviewRow[]>(
-    `SELECT r.rating, r.comment, u.full_name, DATE_FORMAT(r.created_at, '%d/%m/%Y') AS created_at
+    `SELECT r.rating, r.comment, r.admin_reply, u.full_name, DATE_FORMAT(r.created_at, '%d/%m/%Y') AS created_at
      FROM reviews r JOIN users u ON u.id = r.user_id
-     WHERE r.product_id = ? ORDER BY r.created_at DESC LIMIT 50`,
+     WHERE r.product_id = ? AND r.is_visible = 1 ORDER BY r.created_at DESC LIMIT 50`,
     [productId],
   );
   const session = await getSession();
@@ -38,6 +38,7 @@ export async function ReviewsList({ productId, slug }: { productId: string; slug
             <div className="flex items-center gap-3"><span className="text-sm font-medium">{review.full_name}</span><span className="text-xs text-muted-foreground">{review.created_at}</span></div>
             <div className="mt-2 flex" aria-label={`${review.rating} trên 5 sao`}>{[1, 2, 3, 4, 5].map((star) => <Star key={star} className={`size-4 ${star <= review.rating ? 'fill-accent text-accent' : 'text-muted-foreground'}`} />)}</div>
             {review.comment && <p className="mt-2 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{review.comment}</p>}
+            {review.admin_reply && <div className="mt-3 border-l-2 border-accent pl-3"><p className="text-xs font-medium">Phản hồi từ cửa hàng</p><p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-muted-foreground">{review.admin_reply}</p></div>}
           </li>)}
         </ul>
       )}

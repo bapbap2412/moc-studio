@@ -18,7 +18,7 @@ import {
   type AdminVariant,
   type CustomerOption,
 } from "@/lib/admin-types";
-import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE, formatPrice } from "@/lib/format";
+import { formatPrice } from "@/lib/format";
 
 type FormProps = {
   pending: boolean;
@@ -29,7 +29,7 @@ type FormProps = {
 function StatusFields({ order }: { order?: AdminOrder }) {
   return (
     <>
-      <Field label="Trạng thái đơn" htmlFor="o-status" required>
+      <Field label="Trạng thái đơn" htmlFor="o-status" required hint="Đơn chưa thanh toán không thể chuyển sang đã giao.">
         <select
           id="o-status"
           name="status"
@@ -161,7 +161,9 @@ export function OrderCreateForm({
   pending,
   onSubmit,
   onCancel,
-}: FormProps & { variants: AdminVariant[]; customers: CustomerOption[] }) {
+  shippingFee: shippingFeeSetting,
+  freeShippingThreshold,
+}: FormProps & { variants: AdminVariant[]; customers: CustomerOption[]; shippingFee: number; freeShippingThreshold: number }) {
   const [userId, setUserId] = useState("");
   const [contact, setContact] = useState<ContactValues>({
     recipient_name: "",
@@ -176,7 +178,7 @@ export function OrderCreateForm({
     const variant = variantById.get(line.variantId);
     return variant ? sum + variant.price * line.quantity : sum;
   }, 0);
-  const shippingFee = subtotal === 0 || subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+  const shippingFee = subtotal === 0 || subtotal >= freeShippingThreshold ? 0 : shippingFeeSetting;
 
   function selectCustomer(id: string) {
     setUserId(id);

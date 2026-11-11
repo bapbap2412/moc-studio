@@ -36,7 +36,7 @@ function Field({ id, label, className, ...props }: React.InputHTMLAttributes<HTM
   )
 }
 
-export function CheckoutForm({ paymentDetails }: { paymentDetails: PaymentDetails }) {
+export function CheckoutForm({ paymentDetails, shippingFee, freeShippingThreshold, hotline }: { paymentDetails: PaymentDetails; shippingFee: number; freeShippingThreshold: number; hotline: string }) {
   const { items, subtotal, clear } = useCart()
   const [payment, setPayment] = useState('cod')
   const [orderCode, setOrderCode] = useState<string | null>(null)
@@ -189,7 +189,7 @@ export function CheckoutForm({ paymentDetails }: { paymentDetails: PaymentDetail
         <p className="text-sm text-muted-foreground">Trạng thái đơn: Đang xử lý · Thanh toán: Chưa thanh toán</p>
         {(payment === 'ewallet' || payment === 'sepay') && paymentError && (
           <div role="alert" className="max-w-lg border border-amber-300 bg-background p-5 text-sm">
-            {payment === 'ewallet' ? 'VNPay' : 'SePay'} chưa trả về liên kết thanh toán. Đơn {orderCode} đã được tạo và đang chờ thanh toán; vui lòng liên hệ hotline 02838505520 để được hỗ trợ.
+            {payment === 'ewallet' ? 'VNPay' : 'SePay'} chưa trả về liên kết thanh toán. Đơn {orderCode} đã được tạo và đang chờ thanh toán; vui lòng liên hệ hotline {hotline} để được hỗ trợ.
           </div>
         )}
         {payment === 'bank_transfer' && (
@@ -201,10 +201,10 @@ export function CheckoutForm({ paymentDetails }: { paymentDetails: PaymentDetail
                 <dt className="text-muted-foreground">Số tài khoản</dt><dd>{paymentDetails.bankAccount}</dd>
                 <dt className="text-muted-foreground">Chủ tài khoản</dt><dd>{paymentDetails.bankAccountName}</dd>
                 <dt className="text-muted-foreground">Nội dung</dt><dd className="font-semibold">{orderCode}</dd>
-                <dt className="text-muted-foreground">Số tiền</dt><dd className="font-semibold">{formatPrice(calculateOrderAmounts(subtotal, couponDiscount).total)}</dd>
+                <dt className="text-muted-foreground">Số tiền</dt><dd className="font-semibold">{formatPrice(calculateOrderAmounts(subtotal, couponDiscount, shippingFee, freeShippingThreshold).total)}</dd>
               </dl>
             ) : (
-              <p className="mt-2 text-muted-foreground">Cửa hàng chưa cấu hình thông tin nhận tiền. Vui lòng liên hệ hotline 02838505520 và cung cấp mã đơn {orderCode}; đơn hàng vẫn đang chờ thanh toán.</p>
+              <p className="mt-2 text-muted-foreground">Cửa hàng chưa cấu hình thông tin nhận tiền. Vui lòng liên hệ hotline {hotline} và cung cấp mã đơn {orderCode}; đơn hàng vẫn đang chờ thanh toán.</p>
             )}
             <p className="mt-3 text-xs text-muted-foreground">Đơn chỉ được xác nhận thanh toán sau khi cửa hàng đối soát giao dịch.</p>
           </div>
@@ -333,7 +333,7 @@ export function CheckoutForm({ paymentDetails }: { paymentDetails: PaymentDetail
       </div>
 
       <div className="lg:sticky lg:top-32 lg:self-start">
-        <OrderSummary subtotal={subtotal} discount={couponDiscount}>
+        <OrderSummary subtotal={subtotal} discount={couponDiscount} shippingFee={shippingFee} freeShippingThreshold={freeShippingThreshold}>
           <div className="border-t border-border pt-4">
             <label htmlFor="couponCodeInput" className="text-xs text-muted-foreground">Mã giảm giá</label>
             <div className="mt-2 flex gap-2">

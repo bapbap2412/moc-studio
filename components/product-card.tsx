@@ -1,6 +1,6 @@
 import Image from 'next/image'
 import Link from 'next/link'
-import { getColor, type Product } from '@/lib/data'
+import type { Product } from '@/lib/data'
 import { formatPrice } from '@/lib/format'
 import { WishlistButton } from '@/components/product/wishlist-button'
 
@@ -44,7 +44,7 @@ export function ProductCard({ product, priority = false }: { product: Product; p
           </div>
           <ul className="mt-1 flex gap-1.5" aria-label="Màu sắc có sẵn">
             {product.colorIds.map((id) => {
-              const color = getColor(id)
+              const color = product.colorOptions.find((item) => item.id === id)
               if (!color) return null
               return (
                 <li

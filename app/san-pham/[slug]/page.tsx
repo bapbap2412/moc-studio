@@ -5,10 +5,13 @@ import { notFound } from 'next/navigation'
 import { ProductCard } from '@/components/product-card'
 import { ProductPurchase } from '@/components/product/product-purchase'
 import { ReviewsList } from '@/components/product/reviews-list'
-import { getCategoryById, products as sampleProducts } from '@/lib/data'
-import { getStoreProductBySlug, getStoreProducts } from '@/lib/store-products'
+import { products as sampleProducts } from '@/lib/data'
+import { getStoreCategoryById, getStoreProductBySlug, getStoreProducts } from '@/lib/store-products'
+import { getStoreSettings } from '@/lib/store-settings'
 
 type Params = Promise<{ slug: string }>
+
+export const dynamic = "force-dynamic";
 
 export function generateStaticParams() {
   return sampleProducts.map((p) => ({ slug: p.slug }))
@@ -26,8 +29,7 @@ export default async function ProductPage({ params }: { params: Params }) {
   const product = await getStoreProductBySlug(slug)
   if (!product) notFound()
 
-  const category = getCategoryById(product.categoryId)
-  const allProducts = await getStoreProducts()
+  const [allProducts, settings, category] = await Promise.all([getStoreProducts(), getStoreSettings(), getStoreCategoryById(product.categoryId)])
   const related = allProducts.filter((p) => p.categoryId === product.categoryId && p.id !== product.id).slice(0, 4)
 
   return (
@@ -70,7 +72,7 @@ export default async function ProductPage({ params }: { params: Params }) {
         </div>
 
         <div className="lg:sticky lg:top-32 lg:self-start">
-          <ProductPurchase product={product} />
+          <ProductPurchase product={product} shippingFee={settings.shippingFee} freeShippingThreshold={settings.freeShippingThreshold} returnDays={settings.returnDays} />
         </div>
       </div>
 

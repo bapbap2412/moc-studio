@@ -17,32 +17,38 @@ import {
   SearchInput,
   iconButtonClass,
   inputClass,
-  normalizeSearch,
   primaryButtonClass,
 } from "@/components/admin/admin-ui";
 import type { AdminCustomer } from "@/lib/admin-types";
 import { formatPrice } from "@/lib/format";
 
-export function CustomersManager({ customers }: { customers: AdminCustomer[] }) {
-  const [query, setQuery] = useState("");
-  const [orderFilter, setOrderFilter] = useState("all");
+export function CustomersManager({
+  customers,
+  totalCustomers,
+  currentPage,
+  pageSize,
+  initialQuery,
+  initialOrderFilter,
+  summary,
+}: {
+  customers: AdminCustomer[];
+  totalCustomers: number;
+  currentPage: number;
+  pageSize: number;
+  initialQuery: string;
+  initialOrderFilter: string;
+  summary: { total: number; withOrders: number; paidSpend: number };
+}) {
+  const [query, setQuery] = useState(initialQuery);
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<AdminCustomer | null>(null);
   const [deleting, setDeleting] = useState<AdminCustomer | null>(null);
   const [pending, startTransition] = useTransition();
 
-  const search = normalizeSearch(query);
-  const filtered = customers.filter((c) => {
-    if (orderFilter === "with" && c.order_count === 0) return false;
-    if (orderFilter === "without" && c.order_count > 0) return false;
-    if (!search) return true;
-    return [c.full_name, c.email, c.phone ?? ""].some((v) =>
-      normalizeSearch(v).includes(search),
-    );
-  });
+  const filtered = customers;
 
-  const totalSpent = customers.reduce((sum, c) => sum + c.total_spent, 0);
-  const withOrders = customers.filter((c) => c.order_count > 0).length;
+  const pageCount = Math.max(1, Math.ceil(totalCustomers / pageSize));
+  const filterQuery = new URLSearchParams({ q: initialQuery, orders: initialOrderFilter }).toString();
 
   function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -79,10 +85,12 @@ export function CustomersManager({ customers }: { customers: AdminCustomer[] }) 
         <div>
           <h1 className="font-serif text-3xl md:text-4xl">Quản lý khách hàng</h1>
           <p className="mt-2 text-sm text-neutral-500">
-            {customers.length} khách hàng · {withOrders} đã đặt hàng · Tổng chi tiêu{" "}
-            {formatPrice(totalSpent)}
+            {summary.total} khách hàng · {summary.withOrders} đã đặt hàng · Tổng đã thanh toán{" "}
+            {formatPrice(summary.paidSpend)}
           </p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        <a href="/api/admin/reports?type=customers" className="inline-flex h-11 items-center rounded-lg border border-[#e8e5dc] px-4 text-sm hover:bg-white">Xuất CSV</a>
         <button
           type="button"
           onClick={() => {
@@ -94,28 +102,43 @@ export function CustomersManager({ customers }: { customers: AdminCustomer[] }) 
           <Plus size={17} />
           Thêm khách hàng
         </button>
+        </div>
       </section>
 
       <section className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <SearchInput
-          value={query}
-          onChange={setQuery}
-          placeholder="Tìm theo tên, email, SĐT..."
-        />
-        <select
-          value={orderFilter}
-          onChange={(e) => setOrderFilter(e.target.value)}
-          aria-label="Lọc theo đơn hàng"
-          className={`${inputClass} sm:w-48`}
-        >
-          <option value="all">Tất cả khách hàng</option>
-          <option value="with">Đã đặt hàng</option>
-          <option value="without">Chưa đặt hàng</option>
-        </select>
+        <form action="/admin/khach-hang" method="get" className="flex w-full flex-wrap gap-2">
+          <SearchInput
+            name="q"
+            value={query}
+            onChange={setQuery}
+            placeholder="Tìm theo tên, email, SĐT..."
+          />
+          <button type="submit" className="sr-only">Tìm</button>
+          <select name="orders" defaultValue={initialOrderFilter} aria-label="Lọc theo đơn hàng" className={`${inputClass} sm:w-48`}>
+            <option value="all">Tất cả khách hàng</option>
+            <option value="with">Đã đặt hàng</option>
+            <option value="without">Chưa đặt hàng</option>
+          </select>
+          <button type="submit" className="h-11 border border-[#e8e5dc] px-4 text-sm hover:bg-white">Lọc</button>
+        </form>
         <p className="text-sm text-neutral-500 sm:ml-auto">
-          Hiển thị {filtered.length}/{customers.length}
+          Hiển thị {filtered.length} khách trên trang · {totalCustomers} kết quả
         </p>
       </section>
+
+      {pageCount > 1 && (
+        <nav aria-label="Phân trang khách hàng" className="mt-5 flex items-center justify-between">
+          <p className="text-sm text-neutral-500">Trang {currentPage}/{pageCount}</p>
+          <div className="flex gap-2">
+            {currentPage > 1 ? (
+              <Link href={`/admin/khach-hang?${filterQuery}&page=${currentPage - 1}`} className="rounded-lg border border-[#e8e5dc] px-3 py-2 text-sm hover:bg-white">Trước</Link>
+            ) : <span className="rounded-lg border border-[#e8e5dc] px-3 py-2 text-sm text-neutral-400">Trước</span>}
+            {currentPage < pageCount ? (
+              <Link href={`/admin/khach-hang?${filterQuery}&page=${currentPage + 1}`} className="rounded-lg border border-[#e8e5dc] px-3 py-2 text-sm hover:bg-white">Sau</Link>
+            ) : <span className="rounded-lg border border-[#e8e5dc] px-3 py-2 text-sm text-neutral-400">Sau</span>}
+          </div>
+        </nav>
+      )}
 
       <section className="overflow-hidden rounded-xl border border-[#e9e6de] bg-white">
         {filtered.length > 0 ? (

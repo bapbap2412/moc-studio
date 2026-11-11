@@ -106,6 +106,7 @@ export const PAYMENT_METHODS: Record<string, string> = {
   cod: "COD",
   bank_transfer: "Chuyển khoản",
   ewallet: "Ví điện tử",
+  sepay: "SePay",
 };
 
 export const PRODUCT_STATUSES: Record<string, BadgeMeta> = {

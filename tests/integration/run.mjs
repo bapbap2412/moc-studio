@@ -37,8 +37,25 @@ function id() { return randomUUID(); }
 
 async function applySqlFile(conn, file) {
   const source = await readFile(path.join(root, file), "utf8");
-  const statements = source.split(/;\s*(?:\r?\n|$)/).map((statement) => statement.trim()).filter(Boolean);
-  for (const statement of statements) await conn.query(statement);
+  let delimiter = ";";
+  let statement = "";
+  for (const line of source.split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (trimmed.startsWith("--")) continue;
+    const directive = trimmed.match(/^DELIMITER\s+(\S+)$/i);
+    if (directive) {
+      delimiter = directive[1];
+      continue;
+    }
+    statement += `${line}\n`;
+    let delimiterIndex;
+    while ((delimiterIndex = statement.indexOf(delimiter)) !== -1) {
+      const current = statement.slice(0, delimiterIndex).trim();
+      statement = statement.slice(delimiterIndex + delimiter.length);
+      if (current) await conn.query(current);
+    }
+  }
+  if (statement.trim()) await conn.query(statement.trim());
 }
 
 async function waitForApp() {
@@ -110,6 +127,11 @@ try {
     "scripts/005_make_address_district_optional.sql",
     "scripts/006_add_product_is_new.sql",
     "scripts/007_reduce_product_prices.sql",
+    "scripts/008_allow_sepay_payment_method.sql",
+    "scripts/011_add_user_active_status.sql",
+    "scripts/013_add_review_visibility.sql",
+    "scripts/014_create_store_settings.sql",
+    "scripts/015_admin_operations.sql",
   ]) await applySqlFile(testConnection, file);
 
   const customerId = id();

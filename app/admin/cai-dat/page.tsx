@@ -1,36 +1,27 @@
 import Link from "next/link";
-import { ArrowRight, Building2, Package, ShieldCheck, Truck } from "lucide-react";
+import type { RowDataPacket } from "mysql2/promise";
+import { ArrowRight, ShieldCheck } from "lucide-react";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE, formatPrice } from "@/lib/format";
+import { AdminAccountsManager, type AdminAccount } from "@/components/admin/admin-accounts-manager";
+import { StoreSettingsManager } from "@/components/admin/store-settings-manager";
+import pool from "@/lib/db";
+import { getSession } from "@/lib/session";
+import { getStoreSettings } from "@/lib/store-settings";
 
-const settingsSections = [
-  {
-    title: "Thông tin cửa hàng",
-    description: "Thương hiệu MỘC Studio · Thời trang từ chất liệu tự nhiên.",
-    detail: "Hotline: 02838505520",
-    icon: Building2,
-  },
-  {
-    title: "Giao hàng",
-    description: `Phí giao hàng tiêu chuẩn: ${formatPrice(SHIPPING_FEE)}.`,
-    detail: `Miễn phí giao hàng cho đơn từ ${formatPrice(FREE_SHIPPING_THRESHOLD)}.`,
-    icon: Truck,
-  },
-  {
-    title: "Chính sách đổi trả",
-    description: "Khách hàng được hỗ trợ đổi trả trong vòng 30 ngày.",
-    detail: "Thông tin chính sách được hiển thị trên cửa hàng trực tuyến.",
-    icon: Package,
-  },
-  {
-    title: "Quyền truy cập",
-    description: "Khu vực quản trị chỉ dành cho tài khoản có quyền quản trị viên.",
-    detail: "Tài khoản khách hàng không thể truy cập các chức năng quản lý.",
-    icon: ShieldCheck,
-  },
-];
+async function getAdminAccounts(): Promise<AdminAccount[]> {
+  const [rows] = await pool.query<RowDataPacket[]>(
+    "SELECT id, email, full_name, is_active FROM users WHERE role = 'admin' ORDER BY full_name, email",
+  );
+  return rows.map((row) => ({
+    id: String(row.id),
+    email: String(row.email),
+    full_name: String(row.full_name),
+    is_active: Number(row.is_active) === 1,
+  }));
+}
 
-export default function AdminSettingsPage() {
+export default async function AdminSettingsPage() {
+  const [accounts, session, settings] = await Promise.all([getAdminAccounts(), getSession(), getStoreSettings()]);
   return (
     <AdminShell
       activeHref="/admin/cai-dat"
@@ -45,22 +36,19 @@ export default function AdminSettingsPage() {
           </p>
         </div>
 
-        <div className="grid gap-4 md:grid-cols-2">
-          {settingsSections.map(({ title, description, detail, icon: Icon }) => (
-            <section key={title} className="rounded-xl border border-[#e8e5dc] bg-white p-5 md:p-6">
-              <div className="flex items-start gap-4">
-                <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f5f4ef]">
-                  <Icon size={19} strokeWidth={1.7} />
-                </span>
-                <div>
-                  <h2 className="font-medium">{title}</h2>
-                  <p className="mt-2 text-sm leading-6 text-neutral-600">{description}</p>
-                  <p className="mt-1 text-sm leading-6 text-neutral-500">{detail}</p>
-                </div>
-              </div>
-            </section>
-          ))}
-        </div>
+        <StoreSettingsManager settings={settings} />
+
+        <section className="mt-6 rounded-xl border border-[#e8e5dc] bg-white p-5 md:p-6">
+          <div className="flex items-start gap-4">
+            <span className="flex size-10 shrink-0 items-center justify-center rounded-lg bg-[#f5f4ef]"><ShieldCheck size={19} strokeWidth={1.7} /></span>
+            <div>
+              <h2 className="font-medium">Quyền truy cập</h2>
+              <p className="mt-2 text-sm leading-6 text-neutral-600">Khu vực quản trị chỉ dành cho tài khoản có quyền quản trị viên; tài khoản khách hàng không thể truy cập chức năng quản lý.</p>
+            </div>
+          </div>
+        </section>
+
+        <AdminAccountsManager accounts={accounts} currentUserId={session?.userId ?? ""} />
 
         <section className="mt-6 rounded-xl border border-[#e8e5dc] bg-white p-5 md:p-6">
           <h2 className="font-medium">Quản lý cửa hàng</h2>

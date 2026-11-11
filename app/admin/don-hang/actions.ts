@@ -4,7 +4,8 @@ import { randomInt, randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import type { PoolConnection, ResultSetHeader, RowDataPacket } from "mysql2/promise";
 import pool from "@/lib/db";
-import { FREE_SHIPPING_THRESHOLD, SHIPPING_FEE } from "@/lib/format";
+import { recordAdminAudit } from "@/lib/admin-audit";
+import { getStoreSettings } from "@/lib/store-settings";
 import {
   type ActionResult,
   EMAIL_REGEX,
@@ -17,7 +18,7 @@ import {
 
 const VALID_STATUSES = ["pending", "confirmed", "shipping", "completed", "cancelled"];
 const VALID_PAYMENT_STATUSES = ["unpaid", "paid", "refunded"];
-const VALID_PAYMENT_METHODS = ["cod", "bank_transfer", "ewallet"];
+const VALID_PAYMENT_METHODS = ["cod", "bank_transfer", "ewallet", "sepay"];
 const MAX_QTY_PER_VARIANT = 20;
 const MAX_LINES = 30;
 
@@ -56,6 +57,9 @@ function parseContact(formData: FormData): { data: ContactInput } | { error: str
   if (!VALID_STATUSES.includes(status)) return { error: "Trạng thái đơn không hợp lệ." };
   if (!VALID_PAYMENT_STATUSES.includes(paymentStatus)) {
     return { error: "Trạng thái thanh toán không hợp lệ." };
+  }
+  if (status === "completed" && paymentStatus === "unpaid") {
+    return { error: "Không thể hoàn tất đơn hàng đang chưa thanh toán." };
   }
 
   return {
@@ -212,7 +216,8 @@ export async function createOrder(formData: FormData): Promise<ActionResult> {
       subtotal += Number(v.price) * quantity;
     }
 
-    const shippingFee = subtotal >= FREE_SHIPPING_THRESHOLD ? 0 : SHIPPING_FEE;
+    const storeSettings = await getStoreSettings();
+    const shippingFee = subtotal === 0 || subtotal >= storeSettings.freeShippingThreshold ? 0 : storeSettings.shippingFee;
     const total = subtotal + shippingFee;
     const orderId = randomUUID();
 
@@ -254,6 +259,7 @@ export async function createOrder(formData: FormData): Promise<ActionResult> {
 
     await conn.commit();
     revalidateOrderPages();
+    await recordAdminAudit("order.create", "order", orderId, { code, total });
     return { ok: true, message: `Đã tạo đơn hàng ${code}.` };
   } catch (error) {
     await conn.rollback();
@@ -274,7 +280,7 @@ export async function updateOrder(id: string, formData: FormData): Promise<Actio
   try {
     await conn.beginTransaction();
     const [rows] = await conn.execute<RowDataPacket[]>(
-      "SELECT code, status FROM orders WHERE id = ? FOR UPDATE",
+      "SELECT code, status, payment_status FROM orders WHERE id = ? FOR UPDATE",
       [id],
     );
     if (rows.length === 0) throw new OrderError("Đơn hàng không tồn tại hoặc đã bị xóa.");
@@ -290,6 +296,7 @@ export async function updateOrder(id: string, formData: FormData): Promise<Actio
 
     await conn.commit();
     revalidateOrderPages();
+    await recordAdminAudit("order.update", "order", id, { code: String(rows[0].code), status: c.status, paymentStatus: c.paymentStatus });
     return { ok: true, message: `Đã cập nhật đơn hàng ${rows[0].code}.` };
   } catch (error) {
     await conn.rollback();
@@ -309,16 +316,20 @@ export async function updateOrderStatus(id: string, status: string): Promise<Act
   try {
     await conn.beginTransaction();
     const [rows] = await conn.execute<RowDataPacket[]>(
-      "SELECT code, status FROM orders WHERE id = ? FOR UPDATE",
+      "SELECT code, status, payment_status FROM orders WHERE id = ? FOR UPDATE",
       [id],
     );
     if (rows.length === 0) throw new OrderError("Đơn hàng không tồn tại hoặc đã bị xóa.");
+    if (status === "completed" && rows[0].payment_status === "unpaid") {
+      throw new OrderError("Không thể hoàn tất đơn hàng đang chưa thanh toán.");
+    }
 
     await syncStockForStatusChange(conn, id, String(rows[0].status), status);
     await conn.execute("UPDATE orders SET status = ? WHERE id = ?", [status, id]);
 
     await conn.commit();
     revalidateOrderPages();
+    await recordAdminAudit("order.status", "order", id, { code: String(rows[0].code), status });
     return { ok: true, message: `Đã đổi trạng thái đơn ${rows[0].code}.` };
   } catch (error) {
     await conn.rollback();
@@ -349,6 +360,7 @@ export async function deleteOrder(id: string): Promise<ActionResult> {
 
     await conn.commit();
     revalidateOrderPages();
+    await recordAdminAudit("order.delete", "order", id, { code: String(rows[0].code) });
     return { ok: true, message: `Đã xóa đơn hàng ${rows[0].code}.` };
   } catch (error) {
     await conn.rollback();

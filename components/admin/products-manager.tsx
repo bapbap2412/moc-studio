@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { ImagePlus, Package, Pencil, Plus, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -29,16 +30,30 @@ import {
   type AdminProduct,
 } from "@/lib/admin-types";
 import { formatPrice } from "@/lib/format";
-import { colors, sizes } from "@/lib/data";
+import type { Color, Size } from "@/lib/data";
 
 export function ProductsManager({
   products,
   categories,
+  colors,
+  sizes,
+  totalProducts,
+  currentPage,
+  pageSize,
+  initialQuery,
+  summary,
 }: {
   products: AdminProduct[];
   categories: AdminCategory[];
+  colors: Color[];
+  sizes: Size[];
+  totalProducts: number;
+  currentPage: number;
+  pageSize: number;
+  initialQuery: string;
+  summary: { total: number; activeCount: number; totalStock: number };
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [statusFilter, setStatusFilter] = useState("all");
   const [categoryFilter, setCategoryFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("all");
@@ -56,8 +71,7 @@ export function ProductsManager({
       (!search || normalizeSearch(p.name).includes(search)),
   );
 
-  const totalStock = products.reduce((sum, p) => sum + p.total_stock, 0);
-  const activeCount = products.filter((p) => p.status === "active").length;
+  const pageCount = Math.max(1, Math.ceil(totalProducts / pageSize));
 
   function openCreate() {
     setEditing(null);
@@ -104,22 +118,29 @@ export function ProductsManager({
         <div>
           <h1 className="font-serif text-3xl md:text-4xl">Quản lý sản phẩm</h1>
           <p className="mt-2 text-sm text-neutral-500">
-            {products.length} sản phẩm · {activeCount} đang bán · {totalStock}{" "}
+            {summary.total} sản phẩm · {summary.activeCount} đang bán · {summary.totalStock}{" "}
             sản phẩm trong kho
           </p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        <a href="/api/admin/reports?type=products" className="inline-flex h-11 items-center rounded-lg border border-[#e8e5dc] px-4 text-sm hover:bg-white">Xuất CSV</a>
         <button type="button" onClick={openCreate} className={primaryButtonClass}>
           <Plus size={17} />
           Thêm sản phẩm
         </button>
+        </div>
       </section>
 
       <section className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <SearchInput
-          value={query}
-          onChange={setQuery}
-          placeholder="Tìm theo tên sản phẩm..."
-        />
+        <form action="/admin/san-pham" method="get" className="flex w-full gap-2 sm:max-w-xs">
+          <SearchInput
+            name="q"
+            value={query}
+            onChange={setQuery}
+            placeholder="Tìm theo tên sản phẩm..."
+          />
+          <button type="submit" className="sr-only">Tìm</button>
+        </form>
         <select
           value={statusFilter}
           onChange={(e) => setStatusFilter(e.target.value)}
@@ -158,9 +179,23 @@ export function ProductsManager({
           ))}
         </select>
         <p className="text-sm text-neutral-500 sm:ml-auto">
-          Hiển thị {filtered.length}/{products.length}
+          Hiển thị {filtered.length} trên trang · {totalProducts} kết quả
         </p>
       </section>
+
+      {pageCount > 1 && (
+        <nav aria-label="Phân trang sản phẩm" className="mt-5 flex items-center justify-between">
+          <p className="text-sm text-neutral-500">Trang {currentPage}/{pageCount} · {totalProducts} sản phẩm</p>
+          <div className="flex gap-2">
+            {currentPage > 1 ? (
+              <Link href={`/admin/san-pham?q=${encodeURIComponent(initialQuery)}&page=${currentPage - 1}`} className="rounded-lg border border-[#e8e5dc] px-3 py-2 text-sm hover:bg-white">Trước</Link>
+            ) : <span className="rounded-lg border border-[#e8e5dc] px-3 py-2 text-sm text-neutral-400">Trước</span>}
+            {currentPage < pageCount ? (
+              <Link href={`/admin/san-pham?q=${encodeURIComponent(initialQuery)}&page=${currentPage + 1}`} className="rounded-lg border border-[#e8e5dc] px-3 py-2 text-sm hover:bg-white">Sau</Link>
+            ) : <span className="rounded-lg border border-[#e8e5dc] px-3 py-2 text-sm text-neutral-400">Sau</span>}
+          </div>
+        </nav>
+      )}
 
       <section className="overflow-hidden rounded-xl border border-[#e9e6de] bg-white">
         {filtered.length > 0 ? (
@@ -305,6 +340,8 @@ export function ProductsManager({
           key={editing?.id ?? "new-product"}
           product={editing}
           categories={categories}
+          colors={colors}
+          sizes={sizes}
           pending={pending}
           onSubmit={handleSubmit}
           onCancel={() => setFormOpen(false)}
@@ -333,12 +370,16 @@ export function ProductsManager({
 function ProductForm({
   product,
   categories,
+  colors,
+  sizes,
   pending,
   onSubmit,
   onCancel,
 }: {
   product: AdminProduct | null;
   categories: AdminCategory[];
+  colors: Color[];
+  sizes: Size[];
   pending: boolean;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onCancel: () => void;

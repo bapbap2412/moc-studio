@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { Eye, Plus, ShoppingBag, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -16,7 +17,6 @@ import {
   SearchInput,
   iconButtonClass,
   inputClass,
-  normalizeSearch,
   primaryButtonClass,
 } from "@/components/admin/admin-ui";
 import { OrderCreateForm, OrderEditForm } from "@/components/admin/order-forms";
@@ -36,15 +36,29 @@ export function OrdersManager({
   variants,
   customers,
   initialQuery,
+  initialStatus,
+  initialPayment,
+  totalOrders,
+  currentPage,
+  pageSize,
+  summary,
+  shippingFee,
+  freeShippingThreshold,
 }: {
   orders: AdminOrder[];
   variants: AdminVariant[];
   customers: CustomerOption[];
   initialQuery: string;
+  initialStatus: string;
+  initialPayment: string;
+  totalOrders: number;
+  currentPage: number;
+  pageSize: number;
+  summary: { totalOrders: number; pendingCount: number; completedCount: number; paidRevenue: number };
+  shippingFee: number;
+  freeShippingThreshold: number;
 }) {
   const [query, setQuery] = useState(initialQuery);
-  const [statusFilter, setStatusFilter] = useState("all");
-  const [paymentFilter, setPaymentFilter] = useState("all");
   const [creating, setCreating] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deleting, setDeleting] = useState<AdminOrder | null>(null);
@@ -52,21 +66,10 @@ export function OrdersManager({
 
   const editing = orders.find((o) => o.id === editingId) ?? null;
 
-  const search = normalizeSearch(query);
-  const filtered = orders.filter((o) => {
-    if (statusFilter !== "all" && o.status !== statusFilter) return false;
-    if (paymentFilter !== "all" && o.payment_status !== paymentFilter) return false;
-    if (!search) return true;
-    return [o.code, o.recipient_name, o.phone, o.email].some((v) =>
-      normalizeSearch(v).includes(search),
-    );
-  });
+  const filtered = orders;
 
-  const totalRevenue = orders
-    .filter((o) => o.status !== "cancelled")
-    .reduce((sum, o) => sum + o.total, 0);
-  const pendingCount = orders.filter((o) => o.status === "pending").length;
-  const completedCount = orders.filter((o) => o.status === "completed").length;
+  const pageCount = Math.max(1, Math.ceil(totalOrders / pageSize));
+  const filterQuery = new URLSearchParams({ q: initialQuery, status: initialStatus, payment: initialPayment }).toString();
 
   function run(action: () => Promise<{ ok: boolean; message: string }>, onSuccess?: () => void) {
     startTransition(async () => {
@@ -99,42 +102,34 @@ export function OrdersManager({
         <div>
           <h1 className="font-serif text-3xl md:text-4xl">Quản lý đơn hàng</h1>
           <p className="mt-2 text-sm text-neutral-500">
-            {orders.length} đơn hàng · {pendingCount} đang xử lý · {completedCount} đã giao ·
-            Tổng doanh thu {formatPrice(totalRevenue)}
+            {summary.totalOrders} đơn hàng · {summary.pendingCount} đang xử lý · {summary.completedCount} đã giao ·
+            Doanh thu đã thanh toán {formatPrice(summary.paidRevenue)}
           </p>
         </div>
+        <div className="flex flex-wrap gap-2">
+        <a href="/api/admin/reports?type=orders" className="inline-flex h-11 items-center rounded-lg border border-[#e8e5dc] px-4 text-sm hover:bg-white">Xuất CSV</a>
         <button type="button" onClick={() => setCreating(true)} className={primaryButtonClass}>
           <Plus size={17} />
           Tạo đơn hàng
         </button>
+        </div>
       </section>
 
       <section className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <SearchInput value={query} onChange={setQuery} placeholder="Tìm mã đơn, tên, SĐT, email..." />
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          aria-label="Lọc theo trạng thái đơn"
-          className={`${inputClass} sm:w-44`}
-        >
-          <option value="all">Tất cả trạng thái</option>
-          {Object.entries(ORDER_STATUSES).map(([value, meta]) => (
-            <option key={value} value={value}>{meta.label}</option>
-          ))}
-        </select>
-        <select
-          value={paymentFilter}
-          onChange={(e) => setPaymentFilter(e.target.value)}
-          aria-label="Lọc theo thanh toán"
-          className={`${inputClass} sm:w-48`}
-        >
-          <option value="all">Mọi thanh toán</option>
-          {Object.entries(PAYMENT_STATUSES).map(([value, meta]) => (
-            <option key={value} value={value}>{meta.label}</option>
-          ))}
-        </select>
+        <form action="/admin/don-hang" method="get" className="flex w-full flex-wrap gap-2">
+          <SearchInput name="q" value={query} onChange={setQuery} placeholder="Tìm mã đơn, tên, SĐT, email..." />
+          <select name="status" defaultValue={initialStatus} aria-label="Lọc theo trạng thái đơn" className={`${inputClass} sm:w-44`}>
+            <option value="all">Tất cả trạng thái</option>
+            {Object.entries(ORDER_STATUSES).map(([value, meta]) => <option key={value} value={value}>{meta.label}</option>)}
+          </select>
+          <select name="payment" defaultValue={initialPayment} aria-label="Lọc theo thanh toán" className={`${inputClass} sm:w-48`}>
+            <option value="all">Mọi thanh toán</option>
+            {Object.entries(PAYMENT_STATUSES).map(([value, meta]) => <option key={value} value={value}>{meta.label}</option>)}
+          </select>
+          <button type="submit" className="h-11 border border-[#e8e5dc] px-4 text-sm hover:bg-white">Lọc</button>
+        </form>
         <p className="text-sm text-neutral-500 sm:ml-auto">
-          Hiển thị {filtered.length}/{orders.length}
+          Hiển thị {filtered.length} đơn trên trang · {totalOrders} kết quả
         </p>
       </section>
 
@@ -205,7 +200,7 @@ export function OrdersManager({
                           )}
                         >
                           {Object.entries(ORDER_STATUSES).map(([value, meta]) => (
-                            <option key={value} value={value} className="bg-white text-[#4b5735]">
+                            <option key={value} value={value} disabled={value === "completed" && o.payment_status === "unpaid"} className="bg-white text-[#4b5735]">
                               {meta.label}
                             </option>
                           ))}
@@ -247,6 +242,20 @@ export function OrdersManager({
         )}
       </section>
 
+      {pageCount > 1 && (
+        <nav aria-label="Phân trang đơn hàng" className="mt-5 flex items-center justify-between">
+          <p className="text-sm text-neutral-500">Trang {currentPage}/{pageCount}</p>
+          <div className="flex gap-2">
+            {currentPage > 1 ? (
+              <Link href={`/admin/don-hang?${filterQuery}&page=${currentPage - 1}`} className="rounded-lg border border-[#e8e5dc] px-3 py-2 text-sm hover:bg-white">Trước</Link>
+            ) : <span className="rounded-lg border border-[#e8e5dc] px-3 py-2 text-sm text-neutral-400">Trước</span>}
+            {currentPage < pageCount ? (
+              <Link href={`/admin/don-hang?${filterQuery}&page=${currentPage + 1}`} className="rounded-lg border border-[#e8e5dc] px-3 py-2 text-sm hover:bg-white">Sau</Link>
+            ) : <span className="rounded-lg border border-[#e8e5dc] px-3 py-2 text-sm text-neutral-400">Sau</span>}
+          </div>
+        </nav>
+      )}
+
       <Modal
         open={creating}
         onClose={() => !pending && setCreating(false)}
@@ -257,6 +266,8 @@ export function OrdersManager({
         <OrderCreateForm
           variants={variants}
           customers={customers}
+          shippingFee={shippingFee}
+          freeShippingThreshold={freeShippingThreshold}
           pending={pending}
           onSubmit={handleCreate}
           onCancel={() => setCreating(false)}

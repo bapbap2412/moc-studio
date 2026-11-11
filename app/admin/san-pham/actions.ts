@@ -4,6 +4,8 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import type { PoolConnection, RowDataPacket } from "mysql2/promise";
 import pool from "@/lib/db";
+import { getSession } from "@/lib/session";
+import { recordAdminAudit } from "@/lib/admin-audit";
 import { PRODUCT_TYPES } from "@/lib/product-types";
 import {
   type ActionResult,
@@ -81,12 +83,28 @@ async function insertVariant(
   variant: VariantInput,
 ) {
   const sku = `${slugify(productName).slice(0, 35)}-${variant.colorId}-${variant.sizeId}-${randomUUID().slice(0, 8)}`;
+  const id = randomUUID();
+  await conn.execute(
+    "INSERT IGNORE INTO product_colors (product_id, color_id) VALUES (?, ?)",
+    [productId, variant.colorId],
+  );
   await conn.execute(
     `INSERT INTO product_variants
       (id, product_id, color_id, size_id, sku, stock_quantity)
      VALUES (?, ?, ?, ?, ?, ?)`,
-    [randomUUID(), productId, variant.colorId, variant.sizeId, sku, variant.stockQuantity],
+    [id, productId, variant.colorId, variant.sizeId, sku, variant.stockQuantity],
   );
+  if (variant.stockQuantity > 0) {
+    const [rows] = await conn.execute<RowDataPacket[]>(
+      `SELECT c.name AS color_name, s.name AS size_name FROM product_variants pv
+       JOIN colors c ON c.id=pv.color_id JOIN sizes s ON s.id=pv.size_id WHERE pv.id=?`, [id],
+    );
+    await conn.execute(
+      `INSERT INTO inventory_movements (variant_id, sku_snapshot, product_name, color_name, size_name, stock_before, stock_after, reason, admin_user_id)
+       VALUES (?, ?, ?, ?, ?, 0, ?, 'Khởi tạo biến thể sản phẩm', ?)`,
+      [id, sku, productName, rows[0].color_name, rows[0].size_name, variant.stockQuantity, (await getSession())?.userId ?? null],
+    );
+  }
 }
 
 async function saveVariants(
@@ -96,7 +114,11 @@ async function saveVariants(
   variants: VariantInput[],
 ): Promise<{ ok: true } | { ok: false; error: string }> {
   const [rows] = await conn.execute<RowDataPacket[]>(
-    "SELECT id, color_id, size_id FROM product_variants WHERE product_id = ? FOR UPDATE",
+    `SELECT pv.id, pv.color_id, pv.size_id, pv.stock_quantity, pv.sku, p.name AS product_name,
+      c.name AS color_name, s.name AS size_name
+     FROM product_variants pv JOIN products p ON p.id=pv.product_id
+     JOIN colors c ON c.id=pv.color_id JOIN sizes s ON s.id=pv.size_id
+     WHERE pv.product_id = ? FOR UPDATE`,
     [productId],
   );
   const existingByCombination = new Map(
@@ -120,6 +142,15 @@ async function saveVariants(
         "UPDATE product_variants SET stock_quantity = ? WHERE id = ? AND product_id = ?",
         [variant.stockQuantity, variant.id, productId],
       );
+      const before = Number(rows.find((row) => String(row.id) === variant.id)?.stock_quantity ?? variant.stockQuantity);
+      if (before !== variant.stockQuantity) {
+        const prior = rows.find((row) => String(row.id) === variant.id)!;
+        await conn.execute(
+          `INSERT INTO inventory_movements (variant_id, sku_snapshot, product_name, color_name, size_name, stock_before, stock_after, reason, admin_user_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?, 'Điều chỉnh qua form sản phẩm', ?)`,
+          [variant.id, prior.sku, productName, prior.color_name, prior.size_name, before, variant.stockQuantity, (await getSession())?.userId ?? null],
+        );
+      }
     } else {
       if (existingId) return { ok: false, error: "Tổ hợp màu sắc và kích cỡ đã tồn tại." };
       await insertVariant(conn, productId, productName, variant);
@@ -282,6 +313,7 @@ export async function createProduct(formData: FormData): Promise<ActionResult> {
 
     await conn.commit();
     revalidateProductPages();
+    await recordAdminAudit("product.create", "product", id, { name: p.name });
     return { ok: true, message: `Đã thêm sản phẩm "${p.name}".` };
   } catch (error) {
     await conn.rollback();
@@ -336,6 +368,7 @@ export async function updateProduct(
 
     await conn.commit();
     revalidateProductPages();
+    await recordAdminAudit("product.update", "product", id, { name: p.name });
     return { ok: true, message: `Đã cập nhật sản phẩm "${p.name}".` };
   } catch (error) {
     await conn.rollback();
@@ -377,6 +410,7 @@ export async function deleteProduct(id: string): Promise<ActionResult> {
 
     await conn.commit();
     revalidateProductPages();
+    await recordAdminAudit("product.delete", "product", id);
     return { ok: true, message: "Đã xóa sản phẩm." };
   } catch (error) {
     await conn.rollback();

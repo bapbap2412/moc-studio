@@ -1,4 +1,4 @@
--- MOC Studio base schema for MySQL 5.7+ / MariaDB 10.3+.
+-- MOC Studio base schema for MySQL 8.0.16+ / MariaDB 10.3+.
 -- Select the target database before running this file.
 SET NAMES utf8mb4;
 

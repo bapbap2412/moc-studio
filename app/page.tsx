@@ -3,9 +3,10 @@ import { CategoryGrid } from '@/components/home/category-grid'
 import { FeaturedProducts } from '@/components/home/featured-products'
 import { BrandStory } from '@/components/home/brand-story'
 import { BrandValues } from '@/components/home/brand-values'
-import { products } from '@/lib/data'
+import { getStoreProducts } from '@/lib/store-products'
 
-export default function HomePage() {
+export default async function HomePage() {
+  const products = await getStoreProducts()
   const featured = products.filter((p) => p.isFeatured).slice(0, 4)
   const newArrivals = products.filter((p) => p.isNew).slice(0, 4)
 

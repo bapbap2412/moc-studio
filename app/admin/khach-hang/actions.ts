@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import type { RowDataPacket } from "mysql2/promise";
 import pool from "@/lib/db";
+import { recordAdminAudit } from "@/lib/admin-audit";
 import {
   type ActionResult,
   EMAIL_REGEX,
@@ -75,12 +76,14 @@ export async function createCustomer(formData: FormData): Promise<ActionResult> 
       return { ok: false, message: "Email này đã được sử dụng." };
     }
     const passwordHash = await bcrypt.hash(c.password, 12);
+    const id = randomUUID();
     await pool.execute(
       `INSERT INTO users (id, email, password_hash, full_name, phone, role)
        VALUES (?, ?, ?, ?, ?, 'customer')`,
-      [randomUUID(), c.email, passwordHash, c.fullName, c.phone],
+      [id, c.email, passwordHash, c.fullName, c.phone],
     );
     revalidateCustomerPages();
+    await recordAdminAudit("customer.create", "user", id, { name: c.fullName });
     return { ok: true, message: `Đã thêm khách hàng "${c.fullName}".` };
   } catch (error) {
     if (dbErrorCode(error) === "ER_DUP_ENTRY") {
@@ -123,6 +126,7 @@ export async function updateCustomer(
     }
 
     revalidateCustomerPages();
+    await recordAdminAudit("customer.update", "user", id, { name: c.fullName });
     return { ok: true, message: `Đã cập nhật khách hàng "${c.fullName}".` };
   } catch (error) {
     if (dbErrorCode(error) === "ER_DUP_ENTRY") {
@@ -164,6 +168,7 @@ export async function deleteCustomer(id: string): Promise<ActionResult> {
     await conn.commit();
     revalidateCustomerPages();
     revalidatePath("/admin/don-hang");
+    await recordAdminAudit("customer.delete", "user", id);
     return { ok: true, message: "Đã xóa khách hàng. Các đơn hàng cũ vẫn được giữ lại." };
   } catch (error) {
     await conn.rollback();
